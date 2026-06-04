@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2c3e50">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    <title>Budget Buddy</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            padding-bottom: 80px;
+            color: #2c3e50;
+        }
+
+        /* Header */
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 1.2rem 1.5rem;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header h1 { font-size: 1.3rem; font-weight: 600; }
+
+        /* Safe to Spend Card */
+        .safe-card {
+            background: white;
+            margin: 1rem;
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .safe-label { font-size: 0.85rem; color: #888; margin-bottom: 0.3rem; }
+        .safe-amount {
+            font-size: 2.8rem;
+            font-weight: 700;
+            transition: color 0.3s;
+        }
+        .safe-green { color: #27ae60; }
+        .safe-yellow { color: #f39c12; }
+        .safe-red { color: #e74c3c; }
+        .safe-period { font-size: 0.8rem; color: #aaa; margin-top: 0.3rem; }
+
+        /* Quick Actions */
+        .quick-actions {
+            display: flex;
+            gap: 0.8rem;
+            padding: 0 1rem;
+            margin-bottom: 1rem;
+        }
+        .quick-btn {
+            flex: 1;
+            padding: 1rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .quick-btn:active { transform: scale(0.96); }
+        .quick-btn-spend { background: #e74c3c; color: white; }
+        .quick-btn-income { background: #27ae60; color: white; }
+
+        /* Upcoming Bills */
+        .section {
+            background: white;
+            margin: 1rem;
+            border-radius: 16px;
+            padding: 1.2rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .section-title {
+            font-size: 0.85rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.8rem;
+        }
+        .bill-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.7rem 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .bill-item:last-child { border-bottom: none; }
+        .bill-name { font-weight: 500; }
+        .bill-due { font-size: 0.8rem; color: #888; }
+        .bill-amount { font-weight: 600; color: #e74c3c; }
+        .bill-due-soon { color: #e74c3c; font-weight: 600; }
+
+        /* Recent Spending */
+        .spend-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.7rem 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .spend-item:last-child { border-bottom: none; }
+        .spend-cat { font-size: 0.8rem; color: #888; }
+        .spend-amount { font-weight: 600; }
+        .spend-who { font-size: 0.75rem; color: #aaa; }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            border-top: 1px solid #eee;
+            padding: 0.5rem 0;
+            padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+            z-index: 100;
+        }
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 0.5rem;
+            font-size: 0.7rem;
+            color: #888;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+        .nav-item.active { color: #3498db; }
+        .nav-icon { font-size: 1.3rem; display: block; margin-bottom: 0.2rem; }
+
+        /* Pages */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            justify-content: center;
+            align-items: flex-end;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 20px 20px 0 0;
+            padding: 2rem 1.5rem;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideUp 0.2s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .modal h3 { margin-bottom: 1.2rem; text-align: center; }
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1.5rem;
+            font-size: 1.5rem;
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+        }
+
+        /* Form Elements */
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; font-size: 0.85rem; color: #555; margin-bottom: 0.3rem; }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        .form-group input:focus, .form-group select:focus { border-color: #3498db; }
+        .form-btn {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+        .form-btn-primary { background: #3498db; color: white; }
+        .form-btn-danger { background: #e74c3c; color: white; }
+        .form-btn-success { background: #27ae60; color: white; }
+
+        /* Settings Page */
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .setting-item:last-child { border-bottom: none; }
+        .setting-label { font-weight: 500; }
+        .setting-value { color: #888; font-size: 0.9rem; }
+        .setting-edit {
+            background: #3498db;
+            color: white;
+            border: none;
+        <div class="section">
+            <div class="section-title">Upcoming Bills</div>
+            <div id="upcoming-bills"></div>
+        </div>
+            position: fixed;
+            bottom: 90px;
+            right: 1.5rem;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: #3498db;
+            color: white;
+            font-size: 1.8rem;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(52,152,219,0.3);
+            z-index: 50;
+        }
+
+        /* Category badges */
+        .cat-badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: #eee;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Budget Buddy</h1>
+    </div>
+
+    <!-- HOME PAGE -->
+    <div class="page active" id="page-home">
+        <div class="safe-card">
+            <div class="safe-label">Safe to Spend</div>
+            <div class="safe-amount safe-green" id="safe-amount">$0</div>
+            <div class="safe-period" id="safe-period">until next paycheck</div>
+        </div>
+
+        <div class="quick-actions">
+            <button class="quick-btn quick-btn-spend" onclick="openSpendModal()">+ Log Spending</button>
+            <button class="quick-btn quick-btn-income" onclick="openIncomeModal()">+ Add Income</button>
+        </div>
+                <select id="spend-who">
+                    <option value="Bradly">Bradly</option>
+                    <option value="Dani">Dani</option>
+                </select>
+            <div id="upcoming-bills"></div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Recent Spending</div>
+            <div id="recent-spending"></div>
+        </div>
+    </div>
+
+    <!-- SPENDING PAGE -->
+    <div class="page" id="page-spending">
+        <div class="section">
+            <div class="section-title">This Week's Spending</div>
+            <div id="week-spending"></div>
+        </div>
+        <div class="section">
+            <div class="section-title">By Category</div>
+            <div id="category-breakdown"></div>
+        </div>
+    </div>
+
+    <!-- BILLS PAGE -->
+    <div class="page" id="page-bills">
+        <div class="section">
+            <div class="section-title">All Bills & Recurring</div>
+            <div id="all-bills"></div>
+        </div>
+        <button class="add-btn" onclick="openBillModal()">+</button>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div class="page" id="page-settings">
+        <div class="section">
+            <div class="section-title">Income</div>
+            <div id="income-settings"></div>
+            <button class="quick-btn quick-btn-income" style="margin-top:1rem;width:100%;" onclick="openIncomeSetupModal()">+ Add Income Source</button>
+        </div>
+        <div class="section">
+            <div class="section-title">Spending Categories</div>
+            <div id="category-settings"></div>
+            <button class="quick-btn quick-btn-spend" style="margin-top:1rem;width:100%;background:#3498db;" onclick="openCategoryModal()">+ Add Category</button>
+        </div>
+        <div class="section">
+            <div class="section-title">Data</div>
+            <div class="setting-item">
+                <span class="setting-label">Reset All Data</span>
+                <button class="setting-edit" style="background:#e74c3c;" onclick="resetAll()">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <button class="nav-item active" onclick="showPage('home')">
+            <span class="nav-icon">🏠</span>Home
+        </button>
+        <button class="nav-item" onclick="showPage('spending')">
+            <span class="nav-icon">📊</span>Spending
+        </button>
+        <button class="nav-item" onclick="showPage('bills')">
+            <span class="nav-icon">📋</span>Bills
+        </button>
+        <button class="nav-item" onclick="showPage('settings')">
+            <span class="nav-icon">⚙️</span>Settings
+        </button>
+    </div>
+
+    <!-- SPEND MODAL -->
+    <div class="modal-overlay" id="spend-modal">
+        <div class="modal">
+            <h3>Log Spending</h3>
+            <div class="form-group">
+                <label>Amount ($)</label>
+                <input type="number" id="spend-amount" placeholder="0.00" step="0.01" inputmode="decimal">
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select id="spend-category"></select>
+            </div>
+            <div class="form-group">
+                <label>Who spent it?</label>
+                <select id="spend-who">
+                    <option value="Bradly">Bradly</option>
+                    <option value="Wife">Wife</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Note (optional)</label>
+                <input type="text" id="spend-note" placeholder="What was it for?">
+            </div>
+            <button class="form-btn form-btn-danger" onclick="saveSpend()">Log Spending</button>
+            <button class="form-btn" style="background:#eee;color:#555;margin-top:0.5rem;" onclick="closeModal('spend-modal')">Cancel</button>
+        </div>
+    </div>
+
+    <!-- INCOME MODAL -->
+    <div class="modal-overlay" id="income-modal">
+        <div class="modal">
+            <h3>Add Income</h3>
+            <div class="form-group">
+                <label>Amount ($)</label>
+                <input type="number" id="income-amount" placeholder="0.00" step="0.01" inputmode="decimal">
+            </div>
+            <div class="form-group">
+                <label>Source</label>
+                <select id="income-source"></select>
+            </div>
+            <div class="form-group">
+                <label>Note (optional)</label>
+                <input type="text" id="income-note" placeholder="">
+            </div>
+            <button class="form-btn form-btn-success" onclick="saveIncome()">Add Income</button>
+            <button class="form-btn" style="background:#eee;color:#555;margin-top:0.5rem;" onclick="closeModal('income-modal')">Cancel</button>
+        </div>
+    </div>
+
+    <!-- BILL MODAL -->
+    <div class="modal-overlay" id="bill-modal">
+        <div class="modal">
+            <h3>Add Bill</h3>
+            <div class="form-group">
+                <label>Bill Name</label>
+                <input type="text" id="bill-name" placeholder="e.g. Rent, Electric, Netflix">
+            </div>
+            <div class="form-group">
+                <label>Amount ($)</label>
+                <input type="number" id="bill-amount" placeholder="0.00" step="0.01" inputmode="decimal">
+            </div>
+            <div class="form-group">
+                <label>Due Day of Month (1-31)</label>
+                <input type="number" id="bill-due" placeholder="1" min="1" max="31">
+            </div>
+            <div class="form-group">
+                <label>Frequency</label>
+                <select id="bill-frequency">
+                    <option value="monthly">Monthly</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Biweekly</option>
+                </select>
+            </div>
+            <button class="form-btn form-btn-primary" onclick="saveBill()">Save Bill</button>
+            <button class="form-btn" style="background:#eee;color:#555;margin-top:0.5rem;" onclick="closeModal('bill-modal')">Cancel</button>
+        </div>
+    </div>
+
+    <!-- INCOME SETUP MODAL -->
+    <div class="modal-overlay" id="income-setup-modal">
+        <div class="modal">
+            <h3>Add Income Source</h3>
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" id="setup-income-name" placeholder="e.g. My Paycheck, Wife's Check">
+            </div>
+            <div class="form-group">
+                <label>Typical Amount ($)</label>
+                <input type="number" id="setup-income-amount" placeholder="0.00" step="0.01" inputmode="decimal">
+            </div>
+            <div class="form-group">
+                <label>Frequency</label>
+                <select id="setup-income-freq">
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Biweekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Pay Day</label>
+                <select id="setup-income-day">
+                    <option value="monday">Monday</option>
+                    <option value="tuesday">Tuesday</option>
+                    <option value="wednesday">Wednesday</option>
+                    <option value="thursday">Thursday</option>
+                    <option value="friday">Friday</option>
+                </select>
+            </div>
+            <button class="form-btn form-btn-success" onclick="saveIncomeSource()">Save</button>
+            <button class="form-btn" style="background:#eee;color:#555;margin-top:0.5rem;" onclick="closeModal('income-setup-modal')">Cancel</button>
+        </div>
+    </div>
+
+    <!-- CATEGORY MODAL -->
+    <div class="modal-overlay" id="category-modal">
+        <div class="modal">
+            <h3>Add Category</h3>
+            <div class="form-group">
+                <label>Category Name</label>
+                <input type="text" id="new-category" placeholder="e.g. Gas, Groceries, Fun">
+            </div>
+            <button class="form-btn form-btn-primary" onclick="saveCategory()">Save</button>
+            <button class="form-btn" style="background:#eee;color:#555;margin-top:0.5rem;" onclick="closeModal('category-modal')">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        // ===== DATA LAYER (localStorage) =====
+        function getData() {
+            const defaults = {
+                income_sources: [],
+                bills: [],
+                categories: ['Groceries', 'Gas', 'Eating Out', 'Bills', 'Fun', 'Other'],
+                transactions: [],
+                balance: 0
+            };
+            const stored = localStorage.getItem('budgetbuddy');
+            if (stored) return JSON.parse(stored);
+            localStorage.setItem('budgetbuddy', JSON.stringify(defaults));
+            return defaults;
+        }
+
+        function saveData(data) {
+            localStorage.setItem('budgetbuddy', JSON.stringify(data));
+        }
+
+        // ===== NAVIGATION =====
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('page-' + page).classList.add('active');
+            event.target.closest('.nav-item').classList.add('active');
+
+            if (page === 'home') renderHome();
+            if (page === 'spending') renderSpending();
+            if (page === 'bills') renderBills();
+            if (page === 'settings') renderSettings();
+        }
+
+        // ===== MODALS =====
+        function openSpendModal() {
+            const data = getData();
+            const select = document.getElementById('spend-category');
+            select.innerHTML = data.categories.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+            document.getElementById('spend-amount').value = '';
+            document.getElementById('spend-note').value = '';
+            document.getElementById('spend-modal').classList.add('active');
+            document.getElementById('spend-amount').focus();
+        }
+
+        function openIncomeModal() {
+            const data = getData();
+            const select = document.getElementById('income-source');
+            select.innerHTML = data.income_sources.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
+            if (data.income_sources.length === 0) {
+                select.innerHTML = '<option value="Other">Other</option>';
+            }
+            document.getElementById('income-amount').value = '';
+            document.getElementById('income-note').value = '';
+            document.getElementById('income-modal').classList.add('active');
+        }
+
+        function openBillModal() {
+            document.getElementById('bill-name').value = '';
+            document.getElementById('bill-amount').value = '';
+            document.getElementById('bill-due').value = '';
+            document.getElementById('bill-modal').classList.add('active');
+        }
+
+        function openIncomeSetupModal() {
+            document.getElementById('setup-income-name').value = '';
+            document.getElementById('setup-income-amount').value = '';
+            document.getElementById('income-setup-modal').classList.add('active');
+        }
+
+        function openCategoryModal() {
+            document.getElementById('new-category').value = '';
+            document.getElementById('category-modal').classList.add('active');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        // Close modal on overlay tap
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.classList.remove('active');
+            });
+        });
+
+        // ===== SAVE FUNCTIONS =====
+        function saveSpend() {
+            const amount = parseFloat(document.getElementById('spend-amount').value);
+            if (!amount || amount <= 0) return alert('Enter an amount');
+            const data = getData();
+            data.transactions.push({
+                type: 'spend',
+                amount: amount,
+                category: document.getElementById('spend-category').value,
+                who: document.getElementById('spend-who').value,
+                note: document.getElementById('spend-note').value,
+                date: new Date().toISOString()
+            });
+            data.balance -= amount;
+            saveData(data);
+            closeModal('spend-modal');
+            renderHome();
+        }
+
+        function saveIncome() {
+            const amount = parseFloat(document.getElementById('income-amount').value);
+            if (!amount || amount <= 0) return alert('Enter an amount');
+            const data = getData();
+            data.transactions.push({
+                type: 'income',
+                amount: amount,
+                source: document.getElementById('income-source').value,
+                note: document.getElementById('income-note').value,
+                date: new Date().toISOString()
+            });
+            data.balance += amount;
+            saveData(data);
+            closeModal('income-modal');
+            renderHome();
+        }
+
+        function saveBill() {
+            const name = document.getElementById('bill-name').value.trim();
+            const amount = parseFloat(document.getElementById('bill-amount').value);
+            const due = parseInt(document.getElementById('bill-due').value);
+            const freq = document.getElementById('bill-frequency').value;
+            if (!name || !amount || !due) return alert('Fill in all fields');
+            const data = getData();
+            data.bills.push({ name, amount, due_day: due, frequency: freq, id: Date.now() });
+            saveData(data);
+            closeModal('bill-modal');
+            renderBills();
+            renderHome();
+        }
+
+        function saveIncomeSource() {
+            const name = document.getElementById('setup-income-name').value.trim();
+            const amount = parseFloat(document.getElementById('setup-income-amount').value);
+            const freq = document.getElementById('setup-income-freq').value;
+            const day = document.getElementById('setup-income-day').value;
+            if (!name || !amount) return alert('Fill in name and amount');
+            const data = getData();
+            data.income_sources.push({ name, amount, frequency: freq, pay_day: day, id: Date.now() });
+            saveData(data);
+            closeModal('income-setup-modal');
+            renderSettings();
+        }
+
+        function saveCategory() {
+            const name = document.getElementById('new-category').value.trim();
+            if (!name) return alert('Enter a category name');
+            const data = getData();
+            if (!data.categories.includes(name)) {
+                data.categories.push(name);
+                saveData(data);
+            }
+            closeModal('category-modal');
+            renderSettings();
+        }
+
+        // ===== DELETE FUNCTIONS =====
+        function deleteBill(id) {
+            if (!confirm('Delete this bill?')) return;
+            const data = getData();
+            data.bills = data.bills.filter(b => b.id !== id);
+            saveData(data);
+            renderBills();
+            renderHome();
+        }
+
+        function deleteIncomeSource(id) {
+            if (!confirm('Delete this income source?')) return;
+            const data = getData();
+            data.income_sources = data.income_sources.filter(s => s.id !== id);
+            saveData(data);
+            renderSettings();
+        }
+
+        function deleteCategory(name) {
+            if (!confirm('Delete "' + name + '" category?')) return;
+            const data = getData();
+            data.categories = data.categories.filter(c => c !== name);
+            saveData(data);
+            renderSettings();
+        }
+
+        function resetAll() {
+            if (!confirm('This will erase ALL your budget data. Are you sure?')) return;
+            if (!confirm('Really? This cannot be undone.')) return;
+            localStorage.removeItem('budgetbuddy');
+            renderHome();
+            renderSettings();
+        }
+
+        // ===== RENDER FUNCTIONS =====
+        function renderHome() {
+            const data = getData();
+
+            // Safe to spend calculation
+            const today = new Date();
+            const nextPayDay = getNextPayDay(data);
+            const upcomingBillsTotal = getUpcomingBillsBeforePayday(data, nextPayDay);
+            const safeToSpend = data.balance - upcomingBillsTotal;
+
+            const amountEl = document.getElementById('safe-amount');
+            amountEl.textContent = '$' + Math.max(0, safeToSpend).toFixed(0);
+            amountEl.className = 'safe-amount ' + (safeToSpend > 200 ? 'safe-green' : safeToSpend > 50 ? 'safe-yellow' : 'safe-red');
+
+            const daysUntilPay = nextPayDay ? Math.ceil((nextPayDay - today) / 86400000) : '?';
+            document.getElementById('safe-period').textContent = 'until payday (' + daysUntilPay + ' days) • Balance: $' + data.balance.toFixed(2);
+
+            // Upcoming bills
+            const billsEl = document.getElementById('upcoming-bills');
+            const sortedBills = getUpcomingBillsSorted(data);
+            if (sortedBills.length === 0) {
+                billsEl.innerHTML = '<div class="empty-state">No bills set up yet. Go to Bills to add some.</div>';
+            } else {
+                billsEl.innerHTML = sortedBills.slice(0, 4).map(b => {
+                    const daysUntil = b.daysUntil;
+                    const dueClass = daysUntil <= 3 ? 'bill-due-soon' : 'bill-due';
+                    const dueText = daysUntil === 0 ? 'Due TODAY' : daysUntil === 1 ? 'Due tomorrow' : 'Due in ' + daysUntil + ' days';
+                    return '<div class="bill-item"><div><div class="bill-name">' + b.name + '</div><div class="' + dueClass + '">' + dueText + '</div></div><div class="bill-amount">$' + b.amount.toFixed(2) + '</div></div>';
+                }).join('');
+            }
+
+            // Recent spending
+            const spendEl = document.getElementById('recent-spending');
+            const recentSpends = data.transactions.filter(t => t.type === 'spend').slice(-5).reverse();
+            if (recentSpends.length === 0) {
+                spendEl.innerHTML = '<div class="empty-state">No spending logged yet. Tap "Log Spending" to start.</div>';
+            } else {
+                spendEl.innerHTML = recentSpends.map(t => {
+                    const date = new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    return '<div class="spend-item"><div><div class="bill-name">' + (t.note || t.category) + '</div><div class="spend-cat">' + t.category + ' • ' + t.who + ' • ' + date + '</div></div><div class="spend-amount">-$' + t.amount.toFixed(2) + '</div></div>';
+                }).join('');
+            }
+        }
+
+        function renderSpending() {
+            const data = getData();
+            const now = new Date();
+            const weekAgo = new Date(now - 7 * 86400000);
+
+            // This week's spending
+            const weekSpends = data.transactions.filter(t => t.type === 'spend' && new Date(t.date) >= weekAgo);
+            const weekEl = document.getElementById('week-spending');
+
+            if (weekSpends.length === 0) {
+                weekEl.innerHTML = '<div class="empty-state">No spending this week.</div>';
+            } else {
+                const total = weekSpends.reduce((sum, t) => sum + t.amount, 0);
+                let html = '<div class="bill-item"><div class="bill-name">Total this week</div><div class="spend-amount">$' + total.toFixed(2) + '</div></div>';
+                html += weekSpends.reverse().map(t => {
+                    const date = new Date(t.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                    return '<div class="spend-item"><div><div class="bill-name">' + (t.note || t.category) + '</div><div class="spend-cat">' + t.who + ' • ' + date + '</div></div><div class="spend-amount">-$' + t.amount.toFixed(2) + '</div></div>';
+                }).join('');
+                weekEl.innerHTML = html;
+            }
+
+            // Category breakdown
+            const catEl = document.getElementById('category-breakdown');
+            const catTotals = {};
+            weekSpends.forEach(t => {
+                catTotals[t.category] = (catTotals[t.category] || 0) + t.amount;
+            });
+            const sorted = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+            if (sorted.length === 0) {
+                catEl.innerHTML = '<div class="empty-state">No data yet.</div>';
+            } else {
+                catEl.innerHTML = sorted.map(([cat, total]) =>
+                    '<div class="bill-item"><div class="bill-name">' + cat + '</div><div class="spend-amount">$' + total.toFixed(2) + '</div></div>'
+                ).join('');
+            }
+        }
+
+        function renderBills() {
+            const data = getData();
+            const billsEl = document.getElementById('all-bills');
+            if (data.bills.length === 0) {
+                billsEl.innerHTML = '<div class="empty-state">No bills yet. Tap + to add one.</div>';
+                return;
+            }
+            billsEl.innerHTML = data.bills.map(b =>
+                '<div class="bill-item"><div><div class="bill-name">' + b.name + '</div><div class="bill-due">Due on the ' + ordinal(b.due_day) + ' • ' + b.frequency + '</div></div><div style="display:flex;align-items:center;gap:0.8rem;"><div class="bill-amount">$' + b.amount.toFixed(2) + '</div><button class="setting-edit" style="background:#e74c3c;" onclick="deleteBill(' + b.id + ')">✕</button></div></div>'
+            ).join('');
+        }
+
+        function renderSettings() {
+            const data = getData();
+
+            // Income sources
+            const incEl = document.getElementById('income-settings');
+            if (data.income_sources.length === 0) {
+                incEl.innerHTML = '<div class="empty-state">No income sources set up.</div>';
+            } else {
+                incEl.innerHTML = data.income_sources.map(s =>
+                    '<div class="setting-item"><div><div class="setting-label">' + s.name + '</div><div class="setting-value">$' + s.amount.toFixed(2) + ' • ' + s.frequency + ' • ' + s.pay_day + '</div></div><button class="setting-edit" style="background:#e74c3c;" onclick="deleteIncomeSource(' + s.id + ')">✕</button></div>'
+                ).join('');
+            }
+
+            // Categories
+            const catEl = document.getElementById('category-settings');
+            catEl.innerHTML = data.categories.map(c =>
+                '<div class="setting-item"><span class="setting-label">' + c + '</span><button class="setting-edit" style="background:#e74c3c;" onclick="deleteCategory(\'' + c + '\')">✕</button></div>'
+            ).join('');
+        }
+
+        // ===== HELPER FUNCTIONS =====
+        function getNextPayDay(data) {
+            if (data.income_sources.length === 0) {
+                // Default: assume weekly Friday
+                const now = new Date();
+                const dayOfWeek = now.getDay();
+                const daysUntilFriday = (5 - dayOfWeek + 7) % 7 || 7;
+                return new Date(now.getTime() + daysUntilFriday * 86400000);
+            }
+            // Find the soonest payday
+            const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            const now = new Date();
+            let soonest = null;
+
+            for (let source of data.income_sources) {
+                const targetDay = days.indexOf(source.pay_day);
+                const currentDay = now.getDay();
+                let daysUntil = (targetDay - currentDay + 7) % 7 || 7;
+                const nextPay = new Date(now.getTime() + daysUntil * 86400000);
+                if (!soonest || nextPay < soonest) soonest = nextPay;
+            }
+            return soonest;
+        }
+
+        function getUpcomingBillsBeforePayday(data, payDay) {
+            if (!payDay) return 0;
+            const now = new Date();
+            let total = 0;
+            for (let bill of data.bills) {
+                const billDate = getNextBillDate(bill);
+                if (billDate >= now && billDate <= payDay) {
+                    total += bill.amount;
+                }
+            }
+            return total;
+        }
+
+        function getUpcomingBillsSorted(data) {
+            const now = new Date();
+            return data.bills.map(b => {
+                const nextDue = getNextBillDate(b);
+                const daysUntil = Math.ceil((nextDue - now) / 86400000);
+                return { ...b, daysUntil, nextDue };
+            }).sort((a, b) => a.daysUntil - b.daysUntil);
+        }
+
+        function getNextBillDate(bill) {
+            const now = new Date();
+            const thisMonth = new Date(now.getFullYear(), now.getMonth(), bill.due_day);
+            if (thisMonth > now) return thisMonth;
+            return new Date(now.getFullYear(), now.getMonth() + 1, bill.due_day);
+        }
+
+        function ordinal(n) {
+            const s = ['th', 'st', 'nd', 'rd'];
+            const v = n % 100;
+            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+        }
+
+        // ===== INIT =====
+        renderHome();
+
+        // Register service worker
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js');
+        }
+    </script>
+</body>
+</html>
