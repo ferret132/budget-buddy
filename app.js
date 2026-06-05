@@ -16,7 +16,7 @@ function toggleDarkMode() { const data=getData();data.dark_mode=!data.dark_mode;
 
 // ===== PIN =====
 let pinEntry='',pinMode='unlock';
-function checkInit(){const data=getData();applyDarkMode(data.dark_mode);if(!data.setup_complete){showScreen('setup-screen');}else if(data.pin){showScreen('pin-screen');pinMode='unlock';document.getElementById('pin-message').textContent='Enter your PIN';}else{showScreen('app-container');renderHome();}}
+function checkInit(){const data=getData();applyDarkMode(data.dark_mode);if(!data.setup_complete){showScreen('setup-screen');}else if(data.pin){showScreen('pin-screen');pinMode='unlock';document.getElementById('pin-message').textContent='Enter your PIN';}else{showScreen('app-container');renderHome();if(!data.onboarding_done)showOnboarding();}}
 function showScreen(id){['pin-screen','setup-screen','app-container'].forEach(s=>document.getElementById(s).classList.remove('active'));document.getElementById(id).classList.add('active');}
 function pinPress(num){if(pinEntry.length>=4)return;pinEntry+=num;updatePinDots();if(pinEntry.length===4){setTimeout(()=>{const data=getData();if(pinEntry===data.pin){pinEntry='';showScreen('app-container');renderHome();}else{pinError('Wrong PIN');}},200);}}
 function pinDelete(){pinEntry=pinEntry.slice(0,-1);updatePinDots();document.getElementById('pin-error').textContent='';}
@@ -24,7 +24,36 @@ function updatePinDots(){for(let i=0;i<4;i++){document.getElementById('dot-'+i).
 function pinError(msg){document.getElementById('pin-error').textContent=msg;document.querySelectorAll('.pin-dot').forEach(d=>d.classList.add('error'));setTimeout(()=>{pinEntry='';updatePinDots();document.getElementById('pin-error').textContent='';},1000);}
 
 // ===== SETUP =====
-function completeSetup(){const name=document.getElementById('setup-name').value.trim();if(!name)return alert('Please enter your name!');const partner=document.getElementById('setup-partner').value.trim();const pin=document.getElementById('setup-pin').value.trim();if(pin&&pin.length!==4)return alert('PIN must be 4 digits');const data=getData();data.people=[name];if(partner)data.people.push(partner);data.pin=pin||null;data.setup_complete=true;saveData(data);showScreen('app-container');renderHome();}
+function completeSetup(){const name=document.getElementById('setup-name').value.trim();if(!name)return alert('Please enter your name!');const partner=document.getElementById('setup-partner').value.trim();const pin=document.getElementById('setup-pin').value.trim();if(pin&&pin.length!==4)return alert('PIN must be 4 digits');const data=getData();data.people=[name];if(partner)data.people.push(partner);data.pin=pin||null;data.setup_complete=true;data.onboarding_done=false;saveData(data);showScreen('app-container');renderHome();showOnboarding();}
+
+// ===== ONBOARDING =====
+let onboardingStep = 0;
+const onboardingSteps = [
+    { icon: '👋', title: 'Welcome!', text: 'Budget Buddy helps you see exactly where your money goes and what\'s safe to spend. Let\'s get you set up in 4 quick steps.' },
+    { icon: '💰', title: 'Step 1: Add Income', text: 'Go to Settings → Income and add your paycheck(s). Set the amount, frequency, and pay day so the app knows when money comes in.' },
+    { icon: '📋', title: 'Step 2: Add Bills', text: 'Go to the Bills tab and tap + to add your recurring bills. Set the name, amount, and due day. The app will warn you when they\'re coming up.' },
+    { icon: '🏷️', title: 'Step 3: Set Budgets', text: 'Go to Settings → Spending Limits and set monthly budgets for things like Groceries, Gas, and Fun. The forecast uses these to predict your future balance.' },
+    { icon: '✅', title: 'You\'re Ready!', text: 'Log spending as you go with the "+ Spending" button. The Safe to Spend number tells you what\'s free after bills. That\'s it!' }
+];
+function showOnboarding(){
+    const data = getData();
+    if(data.onboarding_done) return;
+    onboardingStep = 0;
+    const overlay = document.createElement('div');
+    overlay.id = 'onboarding-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:300;display:flex;justify-content:center;align-items:center;padding:2rem;';
+    overlay.innerHTML = getOnboardingCard();
+    document.body.appendChild(overlay);
+}
+function getOnboardingCard(){
+    const step = onboardingSteps[onboardingStep];
+    const isLast = onboardingStep === onboardingSteps.length - 1;
+    const dots = onboardingSteps.map((_, i) => '<span style="width:8px;height:8px;border-radius:50%;background:'+(i===onboardingStep?'#3498db':'#555')+';display:inline-block;"></span>').join('');
+    return '<div style="background:white;border-radius:20px;padding:2.5rem 2rem;width:100%;max-width:340px;text-align:center;animation:slideUp 0.2s ease;"><div style="font-size:3rem;margin-bottom:1rem;">'+step.icon+'</div><h3 style="margin-bottom:0.8rem;color:#2c3e50;">'+step.title+'</h3><p style="color:#666;font-size:0.9rem;line-height:1.5;margin-bottom:1.5rem;">'+step.text+'</p><div style="display:flex;justify-content:center;gap:0.5rem;margin-bottom:1.5rem;">'+dots+'</div><div style="display:flex;gap:0.8rem;">'+(onboardingStep>0?'<button onclick="prevOnboarding()" style="flex:1;padding:0.8rem;border:1.5px solid #e0e0e0;border-radius:10px;background:white;font-size:0.95rem;cursor:pointer;">Back</button>':'')+'<button onclick="'+(isLast?'finishOnboarding()':'nextOnboarding()')+'" style="flex:1;padding:0.8rem;border:none;border-radius:10px;background:#3498db;color:white;font-size:0.95rem;font-weight:600;cursor:pointer;">'+(isLast?'Get Started':'Next')+'</button></div></div>';
+}
+function nextOnboarding(){onboardingStep++;document.getElementById('onboarding-overlay').innerHTML=getOnboardingCard();}
+function prevOnboarding(){onboardingStep--;document.getElementById('onboarding-overlay').innerHTML=getOnboardingCard();}
+function finishOnboarding(){document.getElementById('onboarding-overlay').remove();const data=getData();data.onboarding_done=true;saveData(data);}
 
 // ===== NAV =====
 function showPage(page){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');event.target.closest('.nav-item').classList.add('active');if(page==='home')renderHome();if(page==='spending')renderSpending();if(page==='forecast')renderForecast();if(page==='bills')renderBills();if(page==='settings')renderSettings();}
