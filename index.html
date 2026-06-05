@@ -79,8 +79,6 @@
         .forecast-week-label { font-weight: 600; font-size: 0.9rem; }
         .forecast-week-amount { font-weight: 700; font-size: 1.1rem; }
         .forecast-week-detail { font-size: 0.8rem; color: #888; }
-        .forecast-positive { color: #27ae60; }
-        .forecast-negative { color: #e74c3c; }
         .timeline-item { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0; border-bottom: 1px solid #f0f0f0; }
         .timeline-item:last-child { border-bottom: none; }
         .timeline-date { font-size: 0.75rem; color: #888; width: 55px; }
@@ -90,10 +88,58 @@
         .timeline-bill { color: #e74c3c; }
         .timeline-spending { color: #e67e22; }
         .forecast-bar { height: 6px; border-radius: 3px; background: #eee; margin-top: 0.4rem; overflow: hidden; }
-            <div class="section"><div class="section-title">Data</div><div class="setting-item"><span class="setting-label">Export Backup</span><button class="setting-edit" style="background:#27ae60;" onclick="exportData()">💾 Export</button></div><div class="setting-item"><span class="setting-label">Import Backup</span><button class="setting-edit" style="background:#3498db;" onclick="document.getElementById('import-file').click()">📂 Import</button><input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(event)"></div><div class="setting-item"><span class="setting-label">Reset All Data</span><button class="setting-edit" style="background:#e74c3c;" onclick="resetAll()">Reset</button></div></div>
+        .forecast-bar-fill { height: 100%; border-radius: 3px; }
+        /* PIN Screen */
+        .pin-screen { display: none; min-height: 100vh; justify-content: center; align-items: center; padding: 2rem; background: #2c3e50; }
+        .pin-screen.active { display: flex; }
+        .pin-card { text-align: center; width: 100%; max-width: 300px; }
+        .pin-card h2 { color: white; margin-bottom: 0.5rem; }
+        .pin-card p { color: #95a5a6; margin-bottom: 2rem; font-size: 0.9rem; }
+        .pin-dots { display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem; }
+        .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #95a5a6; background: transparent; transition: all 0.2s; }
+        .pin-dot.filled { background: #3498db; border-color: #3498db; }
+        .pin-dot.error { background: #e74c3c; border-color: #e74c3c; }
+        .pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; }
+        .pin-key { padding: 1.2rem; border: none; border-radius: 50%; background: rgba(255,255,255,0.1); color: white; font-size: 1.5rem; font-weight: 600; cursor: pointer; transition: background 0.1s; width: 70px; height: 70px; margin: 0 auto; }
+        .pin-key:active { background: rgba(255,255,255,0.2); }
+        .pin-key.pin-delete { font-size: 1rem; }
+        .pin-error-msg { color: #e74c3c; font-size: 0.85rem; margin-top: 1rem; min-height: 1.2rem; }
+        /* Spending limit bar */
+        .limit-bar { height: 4px; border-radius: 2px; background: #eee; margin-top: 0.3rem; }
+        .limit-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+        .limit-warn { font-size: 0.7rem; color: #e67e22; margin-top: 0.2rem; }
+        /* Bill paid badge */
+        .bill-paid { color: #27ae60; font-size: 0.75rem; font-weight: 600; background: #e8f8f0; padding: 0.2rem 0.5rem; border-radius: 6px; }
+        /* Action buttons row */
+        .action-row { display: flex; gap: 0.4rem; }
+        .action-row button { padding: 0.3rem 0.6rem; border: none; border-radius: 6px; font-size: 0.7rem; cursor: pointer; color: white; }
     </style>
 </head>
 <body>
+    <!-- PIN SCREEN -->
+    <div class="pin-screen" id="pin-screen">
+        <div class="pin-card">
+            <h2>🔒 Budget Buddy</h2>
+            <p id="pin-message">Enter your PIN</p>
+            <div class="pin-dots"><div class="pin-dot" id="dot-0"></div><div class="pin-dot" id="dot-1"></div><div class="pin-dot" id="dot-2"></div><div class="pin-dot" id="dot-3"></div></div>
+            <div class="pin-keypad">
+                <button class="pin-key" onclick="pinPress(1)">1</button>
+                <button class="pin-key" onclick="pinPress(2)">2</button>
+                <button class="pin-key" onclick="pinPress(3)">3</button>
+                <button class="pin-key" onclick="pinPress(4)">4</button>
+                <button class="pin-key" onclick="pinPress(5)">5</button>
+                <button class="pin-key" onclick="pinPress(6)">6</button>
+                <button class="pin-key" onclick="pinPress(7)">7</button>
+                <button class="pin-key" onclick="pinPress(8)">8</button>
+                <button class="pin-key" onclick="pinPress(9)">9</button>
+                <button class="pin-key" onclick="pinPress(0)">0</button>
+                <button class="pin-key pin-delete" onclick="pinDelete()">⌫</button>
+                <button class="pin-key" style="visibility:hidden;"></button>
+            </div>
+            <div class="pin-error-msg" id="pin-error"></div>
+        </div>
+    </div>
+
     <!-- SETUP -->
     <div class="setup-screen" id="setup-screen">
         <div class="setup-card">
@@ -101,6 +147,7 @@
             <p>Let's get you set up. Takes 10 seconds.</p>
             <div class="form-group"><label>Your Name</label><input type="text" id="setup-name" placeholder="e.g. Bradly"></div>
             <div class="form-group"><label>Partner's Name (optional)</label><input type="text" id="setup-partner" placeholder="Leave blank to skip"></div>
+            <div class="form-group"><label>Set a 4-digit PIN</label><input type="number" id="setup-pin" placeholder="1234" maxlength="4" inputmode="numeric"></div>
             <button class="form-btn form-btn-primary" onclick="completeSetup()">Let's Go!</button>
         </div>
     </div>
@@ -137,48 +184,7 @@
                     <div class="section-title" style="margin-bottom:0;">Forecast</div>
                     <div style="display:flex;gap:0.4rem;">
                         <button class="view-toggle active" id="toggle-summary" onclick="setForecastView('summary')">Summary</button>
-        function resetAll() { if(!confirm('Erase ALL data?')) return; if(!confirm('Really?')) return; localStorage.removeItem('budgetbuddy'); checkSetup(); }
-
-        // ===== EXPORT / IMPORT =====
-        function exportData() {
-            const data = getData();
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            const date = new Date().toISOString().slice(0, 10);
-            a.href = url;
-            a.download = 'budget-buddy-backup-' + date + '.json';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            alert('Backup saved! Keep this file somewhere safe (iCloud, email it to yourself, etc.)');
-        }
-
-        function importData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            if (!confirm('This will REPLACE all your current data with the backup. Continue?')) { event.target.value = ''; return; }
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const imported = JSON.parse(e.target.result);
-                    // Validate it looks like budget data
-                    if (!imported.setup_complete || !imported.people) {
-                        alert('This doesn\'t look like a Budget Buddy backup file.');
-                        return;
-                    }
-                    localStorage.setItem('budgetbuddy', JSON.stringify(imported));
-                    alert('Data restored! Reloading...');
-                    location.reload();
-                } catch (err) {
-                    alert('Error reading file. Make sure it\'s a valid Budget Buddy backup.');
-                }
-            };
-            reader.readAsText(file);
-            event.target.value = '';
-        }
-
+                        <button class="view-toggle" id="toggle-timeline" onclick="setForecastView('timeline')">Timeline</button>
                     </div>
                 </div>
                 <div style="display:flex;gap:0.4rem;margin-bottom:1rem;">
@@ -201,7 +207,9 @@
             <div class="section"><div class="section-title">People</div><div id="people-settings"></div><button class="quick-btn" style="margin-top:1rem;width:100%;background:#3498db;color:white;" onclick="openPersonModal()">+ Add Person</button></div>
             <div class="section"><div class="section-title">Income</div><div id="income-settings"></div><button class="quick-btn quick-btn-income" style="margin-top:1rem;width:100%;" onclick="openIncomeSetupModal()">+ Add Income Source</button></div>
             <div class="section"><div class="section-title">Spending Categories</div><div id="category-settings"></div><button class="quick-btn" style="margin-top:1rem;width:100%;background:#3498db;color:white;" onclick="openCategoryModal()">+ Add Category</button></div>
-            <div class="section"><div class="section-title">Data</div><div class="setting-item"><span class="setting-label">Reset All Data</span><button class="setting-edit" style="background:#e74c3c;" onclick="resetAll()">Reset</button></div></div>
+            <div class="section"><div class="section-title">Spending Limits</div><div id="limits-settings"></div><button class="quick-btn" style="margin-top:1rem;width:100%;background:#e67e22;color:white;" onclick="openLimitModal()">+ Set Category Limit</button></div>
+            <div class="section"><div class="section-title">Security</div><div class="setting-item"><span class="setting-label">Change PIN</span><button class="setting-edit" onclick="openChangePinModal()">Change</button></div></div>
+            <div class="section"><div class="section-title">Data</div><div class="setting-item"><span class="setting-label">Export Backup</span><button class="setting-edit" style="background:#27ae60;" onclick="exportData()">💾 Export</button></div><div class="setting-item"><span class="setting-label">Import Backup</span><button class="setting-edit" style="background:#3498db;" onclick="document.getElementById('import-file').click()">📂 Import</button><input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(event)"></div><div class="setting-item"><span class="setting-label">Reset All Data</span><button class="setting-edit" style="background:#e74c3c;" onclick="resetAll()">Reset</button></div></div>
         </div>
 
         <!-- NAV -->
@@ -232,16 +240,19 @@
         <button class="form-btn" style="background:#eee;color:#555;margin-top:0.5rem;" onclick="closeModal('income-modal')">Cancel</button>
     </div></div>
 
-    <div class="modal-overlay" id="bill-modal"><div class="modal"><h3>Add Bill</h3>
+    <div class="modal-overlay" id="bill-modal"><div class="modal"><h3 id="bill-modal-title">Add Bill</h3>
+        <input type="hidden" id="bill-edit-id">
         <div class="form-group"><label>Bill Name</label><input type="text" id="bill-name" placeholder="e.g. Rent, Electric, Netflix"></div>
         <div class="form-group"><label>Amount ($)</label><input type="number" id="bill-amount" placeholder="0.00" step="0.01" inputmode="decimal"></div>
         <div class="form-group"><label>Due Day of Month (1-31)</label><input type="number" id="bill-due" placeholder="1" min="1" max="31"></div>
         <div class="form-group"><label>Frequency</label><select id="bill-frequency"><option value="monthly">Monthly</option><option value="weekly">Weekly</option><option value="biweekly">Biweekly</option></select></div>
+        <div class="form-group"><label>Monthly Spending Limit (optional, $)</label><input type="number" id="bill-limit" placeholder="Leave blank for no limit" step="0.01" inputmode="decimal"></div>
         <button class="form-btn form-btn-primary" onclick="saveBill()">Save Bill</button>
         <button class="form-btn" style="background:#eee;color:#555;margin-top:0.5rem;" onclick="closeModal('bill-modal')">Cancel</button>
     </div></div>
 
-    <div class="modal-overlay" id="income-setup-modal"><div class="modal"><h3>Add Income Source</h3>
+    <div class="modal-overlay" id="income-setup-modal"><div class="modal"><h3 id="income-setup-title">Add Income Source</h3>
+        <input type="hidden" id="income-edit-id">
         <div class="form-group"><label>Name</label><input type="text" id="setup-income-name" placeholder="e.g. My Paycheck"></div>
         <div class="form-group"><label>Typical Amount ($)</label><input type="number" id="setup-income-amount" placeholder="0.00" step="0.01" inputmode="decimal"></div>
         <div class="form-group"><label>Frequency</label><select id="setup-income-freq"><option value="weekly">Weekly</option><option value="biweekly">Biweekly</option><option value="monthly">Monthly</option></select></div>
@@ -262,260 +273,20 @@
         <button class="form-btn" style="background:#eee;color:#555;margin-top:0.5rem;" onclick="closeModal('person-modal')">Cancel</button>
     </div></div>
 
-    <script>
-        // ===== DATA =====
-        function getData() {
-            const defaults = { people: [], income_sources: [], bills: [], categories: ['Groceries','Gas','Eating Out','Bills','Fun','Other'], transactions: [], balance: 0, setup_complete: false };
-            const stored = localStorage.getItem('budgetbuddy');
-            if (stored) return JSON.parse(stored);
-            localStorage.setItem('budgetbuddy', JSON.stringify(defaults));
-            return defaults;
-        }
-        function saveData(data) { localStorage.setItem('budgetbuddy', JSON.stringify(data)); }
+    <div class="modal-overlay" id="limit-modal"><div class="modal"><h3>Set Spending Limit</h3>
+        <div class="form-group"><label>Category</label><select id="limit-category"></select></div>
+        <div class="form-group"><label>Monthly Limit ($)</label><input type="number" id="limit-amount" placeholder="0.00" step="0.01" inputmode="decimal"></div>
+        <button class="form-btn form-btn-primary" onclick="saveLimit()">Save Limit</button>
+        <button class="form-btn" style="background:#eee;color:#555;margin-top:0.5rem;" onclick="closeModal('limit-modal')">Cancel</button>
+    </div></div>
 
-        // ===== SETUP =====
-        function checkSetup() {
-            const data = getData();
-            if (data.setup_complete) { document.getElementById('setup-screen').classList.remove('active'); document.getElementById('app-container').classList.add('active'); renderHome(); }
-            else { document.getElementById('setup-screen').classList.add('active'); document.getElementById('app-container').classList.remove('active'); }
-        }
-        function completeSetup() {
-            const name = document.getElementById('setup-name').value.trim();
-            if (!name) return alert('Please enter your name!');
-            const partner = document.getElementById('setup-partner').value.trim();
-            const data = getData();
-            data.people = [name];
-            if (partner) data.people.push(partner);
-            data.setup_complete = true;
-            saveData(data);
-            checkSetup();
-        }
+    <div class="modal-overlay" id="change-pin-modal"><div class="modal"><h3>Change PIN</h3>
+        <div class="form-group"><label>Current PIN</label><input type="number" id="current-pin" placeholder="••••" inputmode="numeric" maxlength="4"></div>
+        <div class="form-group"><label>New PIN</label><input type="number" id="new-pin" placeholder="••••" inputmode="numeric" maxlength="4"></div>
+        <button class="form-btn form-btn-primary" onclick="changePin()">Update PIN</button>
+        <button class="form-btn" style="background:#eee;color:#555;margin-top:0.5rem;" onclick="closeModal('change-pin-modal')">Cancel</button>
+    </div></div>
 
-        // ===== NAV =====
-        function showPage(page) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            document.getElementById('page-' + page).classList.add('active');
-            event.target.closest('.nav-item').classList.add('active');
-            if (page === 'home') renderHome();
-            if (page === 'spending') renderSpending();
-            if (page === 'forecast') renderForecast();
-            if (page === 'bills') renderBills();
-            if (page === 'settings') renderSettings();
-        }
-
-        // ===== MODALS =====
-        function openSpendModal() { const data = getData(); document.getElementById('spend-category').innerHTML = data.categories.map(c=>'<option>'+c+'</option>').join(''); document.getElementById('spend-who').innerHTML = data.people.map(p=>'<option>'+p+'</option>').join(''); document.getElementById('spend-amount').value=''; document.getElementById('spend-note').value=''; document.getElementById('spend-modal').classList.add('active'); }
-        function openIncomeModal() { const data = getData(); const s = document.getElementById('income-source'); s.innerHTML = data.income_sources.length > 0 ? data.income_sources.map(x=>'<option>'+x.name+'</option>').join('') : '<option>Other</option>'; document.getElementById('income-amount').value=''; document.getElementById('income-note').value=''; document.getElementById('income-modal').classList.add('active'); }
-        function openBillModal() { document.getElementById('bill-name').value=''; document.getElementById('bill-amount').value=''; document.getElementById('bill-due').value=''; document.getElementById('bill-modal').classList.add('active'); }
-        function openIncomeSetupModal() { document.getElementById('setup-income-name').value=''; document.getElementById('setup-income-amount').value=''; document.getElementById('income-setup-modal').classList.add('active'); }
-        function openCategoryModal() { document.getElementById('new-category').value=''; document.getElementById('category-modal').classList.add('active'); }
-        function openPersonModal() { document.getElementById('new-person').value=''; document.getElementById('person-modal').classList.add('active'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-        document.querySelectorAll('.modal-overlay').forEach(o => { o.addEventListener('click', e => { if(e.target===o) o.classList.remove('active'); }); });
-
-        // ===== SAVES =====
-        function saveSpend() { const a=parseFloat(document.getElementById('spend-amount').value); if(!a||a<=0) return alert('Enter an amount'); const data=getData(); data.transactions.push({type:'spend',amount:a,category:document.getElementById('spend-category').value,who:document.getElementById('spend-who').value,note:document.getElementById('spend-note').value,date:new Date().toISOString()}); data.balance-=a; saveData(data); closeModal('spend-modal'); renderHome(); }
-        function saveIncome() { const a=parseFloat(document.getElementById('income-amount').value); if(!a||a<=0) return alert('Enter an amount'); const data=getData(); data.transactions.push({type:'income',amount:a,source:document.getElementById('income-source').value,note:document.getElementById('income-note').value,date:new Date().toISOString()}); data.balance+=a; saveData(data); closeModal('income-modal'); renderHome(); }
-        function saveBill() { const n=document.getElementById('bill-name').value.trim(),a=parseFloat(document.getElementById('bill-amount').value),d=parseInt(document.getElementById('bill-due').value),f=document.getElementById('bill-frequency').value; if(!n||!a||!d) return alert('Fill in all fields'); const data=getData(); data.bills.push({name:n,amount:a,due_day:d,frequency:f,id:Date.now()}); saveData(data); closeModal('bill-modal'); renderBills(); renderHome(); }
-        function saveIncomeSource() { const n=document.getElementById('setup-income-name').value.trim(),a=parseFloat(document.getElementById('setup-income-amount').value),f=document.getElementById('setup-income-freq').value,d=document.getElementById('setup-income-day').value; if(!n||!a) return alert('Fill in name and amount'); const data=getData(); data.income_sources.push({name:n,amount:a,frequency:f,pay_day:d,id:Date.now()}); saveData(data); closeModal('income-setup-modal'); renderSettings(); }
-        function saveCategory() { const n=document.getElementById('new-category').value.trim(); if(!n) return alert('Enter a name'); const data=getData(); if(!data.categories.includes(n)){data.categories.push(n);saveData(data);} closeModal('category-modal'); renderSettings(); }
-        function savePerson() { const n=document.getElementById('new-person').value.trim(); if(!n) return alert('Enter a name'); const data=getData(); if(!data.people.includes(n)){data.people.push(n);saveData(data);} closeModal('person-modal'); renderSettings(); }
-
-        // ===== DELETES =====
-        function deleteBill(id) { if(!confirm('Delete this bill?')) return; const data=getData(); data.bills=data.bills.filter(b=>b.id!==id); saveData(data); renderBills(); renderHome(); }
-        function deleteIncomeSource(id) { if(!confirm('Delete?')) return; const data=getData(); data.income_sources=data.income_sources.filter(s=>s.id!==id); saveData(data); renderSettings(); }
-        function deleteCategory(name) { if(!confirm('Delete "'+name+'"?')) return; const data=getData(); data.categories=data.categories.filter(c=>c!==name); saveData(data); renderSettings(); }
-        function deletePerson(name) { const data=getData(); if(data.people.length<=1) return alert('Need at least one person!'); if(!confirm('Remove "'+name+'"?')) return; data.people=data.people.filter(p=>p!==name); saveData(data); renderSettings(); }
-        function resetAll() { if(!confirm('Erase ALL data?')) return; if(!confirm('Really?')) return; localStorage.removeItem('budgetbuddy'); checkSetup(); }
-
-        // ===== RENDER HOME =====
-        function renderHome() {
-            const data=getData(), today=new Date(), nextPay=getNextPayDay(data);
-            const billsDue=getUpcomingBillsBeforePayday(data,nextPay);
-            const safe=data.balance-billsDue;
-            const el=document.getElementById('safe-amount');
-            el.textContent='$'+Math.max(0,safe).toFixed(0);
-            el.className='safe-amount '+(safe>200?'safe-green':safe>50?'safe-yellow':'safe-red');
-            const days=nextPay?Math.ceil((nextPay-today)/86400000):'?';
-            document.getElementById('safe-period').textContent='until payday ('+days+' days) • Balance: $'+data.balance.toFixed(2);
-            const bEl=document.getElementById('upcoming-bills'), sorted=getUpcomingBillsSorted(data);
-            bEl.innerHTML=sorted.length===0?'<div class="empty-state">No bills set up yet.</div>':sorted.slice(0,4).map(b=>{const t=b.daysUntil===0?'Due TODAY':b.daysUntil===1?'Due tomorrow':'Due in '+b.daysUntil+' days';return'<div class="bill-item"><div><div class="bill-name">'+b.name+'</div><div class="'+(b.daysUntil<=3?'bill-due-soon':'bill-due')+'">'+t+'</div></div><div class="bill-amount">$'+b.amount.toFixed(2)+'</div></div>';}).join('');
-            const sEl=document.getElementById('recent-spending'), recent=data.transactions.filter(t=>t.type==='spend').slice(-5).reverse();
-            sEl.innerHTML=recent.length===0?'<div class="empty-state">No spending logged yet.</div>':recent.map(t=>{const d=new Date(t.date).toLocaleDateString('en-US',{month:'short',day:'numeric'});return'<div class="spend-item"><div><div class="bill-name">'+(t.note||t.category)+'</div><div class="spend-cat">'+t.category+' • '+t.who+' • '+d+'</div></div><div class="spend-amount">-$'+t.amount.toFixed(2)+'</div></div>';}).join('');
-        }
-
-        // ===== RENDER SPENDING =====
-        function renderSpending() {
-            const data=getData(),now=new Date(),ago=new Date(now-7*86400000);
-            const week=data.transactions.filter(t=>t.type==='spend'&&new Date(t.date)>=ago);
-            const wEl=document.getElementById('week-spending');
-            if(week.length===0){wEl.innerHTML='<div class="empty-state">No spending this week.</div>';}
-            else{const tot=week.reduce((s,t)=>s+t.amount,0);let h='<div class="bill-item"><div class="bill-name">Total this week</div><div class="spend-amount">$'+tot.toFixed(2)+'</div></div>';h+=week.reverse().map(t=>{const d=new Date(t.date).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});return'<div class="spend-item"><div><div class="bill-name">'+(t.note||t.category)+'</div><div class="spend-cat">'+t.who+' • '+d+'</div></div><div class="spend-amount">-$'+t.amount.toFixed(2)+'</div></div>';}).join('');wEl.innerHTML=h;}
-            const cEl=document.getElementById('category-breakdown'),cats={};week.forEach(t=>{cats[t.category]=(cats[t.category]||0)+t.amount;});const s=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
-            cEl.innerHTML=s.length===0?'<div class="empty-state">No data yet.</div>':s.map(([c,t])=>'<div class="bill-item"><div class="bill-name">'+c+'</div><div class="spend-amount">$'+t.toFixed(2)+'</div></div>').join('');
-        }
-
-        // ===== RENDER FORECAST =====
-        let forecastWeeks = 2;
-        let forecastView = 'summary';
-
-        function setForecastWeeks(w) { forecastWeeks=w; document.querySelectorAll('.week-toggle').forEach(b=>b.classList.remove('active')); document.getElementById('week-'+w).classList.add('active'); renderForecast(); }
-        function setForecastView(v) { forecastView=v; document.querySelectorAll('.view-toggle').forEach(b=>b.classList.remove('active')); document.getElementById('toggle-'+v).classList.add('active'); renderForecast(); }
-
-        function renderForecast() {
-            const data = getData();
-            const now = new Date();
-            const endDate = new Date(now.getTime() + forecastWeeks * 7 * 86400000);
-
-            // Calculate average daily spending from last 14 days
-            const twoWeeksAgo = new Date(now - 14 * 86400000);
-            const recentSpending = data.transactions.filter(t => t.type === 'spend' && new Date(t.date) >= twoWeeksAgo);
-            const avgDailySpend = recentSpending.length > 0 ? recentSpending.reduce((s, t) => s + t.amount, 0) / 14 : 0;
-
-            // Get all events in the forecast window
-            const events = [];
-
-            // Add bills
-            for (let bill of data.bills) {
-                let checkDate = new Date(now);
-                for (let m = 0; m < 2; m++) {
-                    const billDate = new Date(checkDate.getFullYear(), checkDate.getMonth() + m, bill.due_day);
-                    if (billDate > now && billDate <= endDate) {
-                        events.push({ date: billDate, name: bill.name, amount: -bill.amount, type: 'bill' });
-                    }
-                }
-            }
-
-            // Add paychecks
-            const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-            for (let source of data.income_sources) {
-                const targetDay = days.indexOf(source.pay_day);
-                let checkDate = new Date(now);
-                for (let i = 0; i < forecastWeeks * 7; i++) {
-                    checkDate = new Date(now.getTime() + (i + 1) * 86400000);
-                    if (checkDate > endDate) break;
-                    if (checkDate.getDay() === targetDay) {
-                        if (source.frequency === 'weekly') {
-                            events.push({ date: new Date(checkDate), name: source.name, amount: source.amount, type: 'income' });
-                        } else if (source.frequency === 'biweekly') {
-                            const weekNum = Math.floor(i / 7);
-                            if (weekNum % 2 === 0) events.push({ date: new Date(checkDate), name: source.name, amount: source.amount, type: 'income' });
-                        }
-                    }
-                }
-            }
-
-            events.sort((a, b) => a.date - b.date);
-
-            const container = document.getElementById('forecast-content');
-
-            if (forecastView === 'summary') {
-                // Week by week summary
-                let html = '';
-                let runningBalance = data.balance;
-                const maxBalance = data.balance + data.income_sources.reduce((s, src) => s + src.amount, 0) * forecastWeeks;
-
-                for (let w = 0; w < forecastWeeks; w++) {
-                    const weekStart = new Date(now.getTime() + w * 7 * 86400000);
-                    const weekEnd = new Date(now.getTime() + (w + 1) * 7 * 86400000);
-                    const weekEvents = events.filter(e => e.date >= weekStart && e.date < weekEnd);
-                    const weekIncome = weekEvents.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
-                    const weekBills = weekEvents.filter(e => e.type === 'bill').reduce((s, e) => s + Math.abs(e.amount), 0);
-                    const weekSpendEst = avgDailySpend * 7;
-
-                    runningBalance += weekIncome - weekBills - weekSpendEst;
-                    const pct = Math.max(0, Math.min(100, (runningBalance / maxBalance) * 100));
-                    const color = runningBalance > 200 ? '#27ae60' : runningBalance > 50 ? '#f39c12' : '#e74c3c';
-                    const label = w === 0 ? 'This Week' : w === 1 ? 'Next Week' : 'Week ' + (w + 1);
-
-                    html += '<div class="forecast-week">';
-                    html += '<div class="forecast-week-header"><span class="forecast-week-label">' + label + '</span><span class="forecast-week-amount" style="color:' + color + '">$' + Math.max(0, runningBalance).toFixed(0) + '</span></div>';
-                    html += '<div class="forecast-week-detail">+$' + weekIncome.toFixed(0) + ' income • -$' + weekBills.toFixed(0) + ' bills • -$' + weekSpendEst.toFixed(0) + ' est. spending</div>';
-                    html += '<div class="forecast-bar"><div class="forecast-bar-fill" style="width:' + pct + '%;background:' + color + ';"></div></div>';
-                    html += '</div>';
-                }
-
-                if (avgDailySpend > 0) {
-                    html += '<div style="font-size:0.75rem;color:#888;text-align:center;margin-top:0.5rem;">Spending estimate based on your avg $' + avgDailySpend.toFixed(0) + '/day over last 2 weeks</div>';
-                } else {
-                    html += '<div style="font-size:0.75rem;color:#888;text-align:center;margin-top:0.5rem;">Log some spending to improve forecast accuracy</div>';
-                }
-
-                container.innerHTML = html;
-            } else {
-                // Timeline view
-                let html = '';
-                let runningBalance = data.balance;
-
-                if (events.length === 0) {
-                    html = '<div class="empty-state">No upcoming bills or income. Set them up in Settings and Bills tabs.</div>';
-                } else {
-                    // Add daily spending estimates between events
-                    let allItems = [];
-                    events.forEach(e => {
-                        allItems.push(e);
-                    });
-
-                    // Add weekly spending estimates
-                    for (let w = 0; w < forecastWeeks; w++) {
-                        const spendDate = new Date(now.getTime() + (w * 7 + 3) * 86400000);
-                        if (spendDate <= endDate && avgDailySpend > 0) {
-                            allItems.push({ date: spendDate, name: 'Est. weekly spending', amount: -(avgDailySpend * 7), type: 'spending' });
-                        }
-                    }
-
-                    allItems.sort((a, b) => a.date - b.date);
-
-                    html = '<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:2px solid #eee;margin-bottom:0.3rem;"><span style="font-size:0.8rem;font-weight:600;">Today</span><span style="font-size:0.8rem;font-weight:600;">$' + data.balance.toFixed(0) + '</span></div>';
-
-                    allItems.forEach(item => {
-                        runningBalance += item.amount;
-                        const dateStr = item.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                        const amtClass = item.type === 'income' ? 'timeline-income' : item.type === 'spending' ? 'timeline-spending' : 'timeline-bill';
-                        const prefix = item.amount > 0 ? '+' : '';
-                        html += '<div class="timeline-item"><span class="timeline-date">' + dateStr + '</span><span class="timeline-name">' + item.name + '</span><span class="timeline-amount ' + amtClass + '">' + prefix + '$' + Math.abs(item.amount).toFixed(0) + '</span></div>';
-                    });
-
-                    const finalColor = runningBalance > 200 ? '#27ae60' : runningBalance > 50 ? '#f39c12' : '#e74c3c';
-                    html += '<div style="display:flex;justify-content:space-between;padding:0.8rem 0;border-top:2px solid #eee;margin-top:0.3rem;"><span style="font-size:0.85rem;font-weight:600;">End of forecast</span><span style="font-size:0.85rem;font-weight:700;color:' + finalColor + '">$' + Math.max(0, runningBalance).toFixed(0) + '</span></div>';
-                }
-
-                container.innerHTML = html;
-            }
-        }
-
-        // ===== RENDER BILLS =====
-        function renderBills() {
-            const data=getData(),el=document.getElementById('all-bills');
-            if(data.bills.length===0){el.innerHTML='<div class="empty-state">No bills yet. Tap + to add one.</div>';return;}
-            el.innerHTML=data.bills.map(b=>'<div class="bill-item"><div><div class="bill-name">'+b.name+'</div><div class="bill-due">Due on the '+ordinal(b.due_day)+' • '+b.frequency+'</div></div><div style="display:flex;align-items:center;gap:0.8rem;"><div class="bill-amount">$'+b.amount.toFixed(2)+'</div><button class="setting-edit" style="background:#e74c3c;" onclick="deleteBill('+b.id+')">✕</button></div></div>').join('');
-        }
-
-        // ===== RENDER SETTINGS =====
-        function renderSettings() {
-            const data=getData();
-            document.getElementById('people-settings').innerHTML=data.people.map(p=>'<div class="setting-item"><span class="setting-label">'+p+'</span><button class="setting-edit" style="background:#e74c3c;" onclick="deletePerson(\''+p+'\')">✕</button></div>').join('');
-            const iEl=document.getElementById('income-settings');
-            iEl.innerHTML=data.income_sources.length===0?'<div class="empty-state">No income sources set up.</div>':data.income_sources.map(s=>'<div class="setting-item"><div><div class="setting-label">'+s.name+'</div><div class="setting-value">$'+s.amount.toFixed(2)+' • '+s.frequency+' • '+s.pay_day+'</div></div><button class="setting-edit" style="background:#e74c3c;" onclick="deleteIncomeSource('+s.id+')">✕</button></div>').join('');
-            document.getElementById('category-settings').innerHTML=data.categories.map(c=>'<div class="setting-item"><span class="setting-label">'+c+'</span><button class="setting-edit" style="background:#e74c3c;" onclick="deleteCategory(\''+c+'\')">✕</button></div>').join('');
-        }
-
-        // ===== HELPERS =====
-        function getNextPayDay(data) {
-            if(data.income_sources.length===0){const n=new Date();return new Date(n.getTime()+((5-n.getDay()+7)%7||7)*86400000);}
-            const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'],now=new Date();let soonest=null;
-            for(let s of data.income_sources){const t=days.indexOf(s.pay_day),d=(t-now.getDay()+7)%7||7;const p=new Date(now.getTime()+d*86400000);if(!soonest||p<soonest)soonest=p;}
-            return soonest;
-        }
-        function getUpcomingBillsBeforePayday(data,payDay) { if(!payDay)return 0;const now=new Date();let t=0;for(let b of data.bills){const d=getNextBillDate(b);if(d>=now&&d<=payDay)t+=b.amount;}return t; }
-        function getUpcomingBillsSorted(data) { const now=new Date();return data.bills.map(b=>{const d=getNextBillDate(b);return{...b,daysUntil:Math.ceil((d-now)/86400000),nextDue:d};}).sort((a,b)=>a.daysUntil-b.daysUntil); }
-        function getNextBillDate(bill) { const now=new Date(),t=new Date(now.getFullYear(),now.getMonth(),bill.due_day);if(t>now)return t;return new Date(now.getFullYear(),now.getMonth()+1,bill.due_day); }
-        function ordinal(n) { const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]); }
-
-        // ===== INIT =====
-        checkSetup();
-        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
-    </script>
+    <script src="./app.js"></script>
 </body>
 </html>
