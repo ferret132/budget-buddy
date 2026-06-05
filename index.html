@@ -103,10 +103,9 @@
         .bill-paid { color: #27ae60; font-size: 0.75rem; font-weight: 600; background: #e8f8f0; padding: 0.2rem 0.5rem; border-radius: 6px; }
         .forecast-bar { height: 6px; border-radius: 3px; background: #eee; margin-top: 0.4rem; overflow: hidden; }
         .forecast-bar-fill { height: 100%; border-radius: 3px; }
+        .forecast-bar { height: 6px; border-radius: 3px; background: #eee; margin-top: 0.4rem; overflow: hidden; }
+        .forecast-bar-fill { height: 100%; border-radius: 3px; }
     </style>
-        .action-row button { padding: 0.3rem 0.6rem; border: none; border-radius: 6px; font-size: 0.7rem; cursor: pointer; color: white; }
-    </style>
-</head>
 <body>
     <div class="pin-screen" id="pin-screen"><div class="pin-card"><h2>🔒 Budget Buddy</h2><p id="pin-message">Enter your PIN</p><div class="pin-dots"><div class="pin-dot" id="dot-0"></div><div class="pin-dot" id="dot-1"></div><div class="pin-dot" id="dot-2"></div><div class="pin-dot" id="dot-3"></div></div><div class="pin-keypad"><button class="pin-key" onclick="pinPress(1)">1</button><button class="pin-key" onclick="pinPress(2)">2</button><button class="pin-key" onclick="pinPress(3)">3</button><button class="pin-key" onclick="pinPress(4)">4</button><button class="pin-key" onclick="pinPress(5)">5</button><button class="pin-key" onclick="pinPress(6)">6</button><button class="pin-key" onclick="pinPress(7)">7</button><button class="pin-key" onclick="pinPress(8)">8</button><button class="pin-key" onclick="pinPress(9)">9</button><button class="pin-key" onclick="pinPress(0)">0</button><button class="pin-key pin-delete" onclick="pinDelete()">⌫</button><button class="pin-key" style="visibility:hidden;"></button></div><div class="pin-error-msg" id="pin-error"></div></div></div>
 
@@ -129,14 +128,11 @@
         </div>
 
         <div class="page" id="page-forecast">
-            <div class="section">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;"><div class="section-title" style="margin-bottom:0;">Forecast</div><div style="display:flex;gap:0.4rem;"><button class="view-toggle active" id="toggle-summary" onclick="setForecastView('summary')">Summary</button><button class="view-toggle" id="toggle-timeline" onclick="setForecastView('timeline')">Timeline</button></div></div>
-                <div style="display:flex;gap:0.4rem;margin-bottom:1rem;"><button class="week-toggle active" id="week-2" onclick="setForecastWeeks(2)">2 wks</button><button class="week-toggle" id="week-3" onclick="setForecastWeeks(3)">3 wks</button><button class="week-toggle" id="week-4" onclick="setForecastWeeks(4)">4 wks</button></div>
                 <div id="forecast-content"></div>
             </div>
-            <div class="section"><div class="section-title">Spending Limits</div><div id="limits-settings"></div><button class="quick-btn" style="margin-top:1rem;width:100%;background:#e67e22;color:white;" onclick="openLimitModal()">+ Set Category Limit</button></div>
-            <div class="section"><div class="section-title">Appearance</div><div class="setting-item"><span class="setting-label">Dark Mode</span><button class="setting-edit" id="dark-mode-btn" onclick="toggleDarkMode()">🌙 Toggle</button></div></div>
-            <div class="section"><div class="section-title">Security</div><div class="setting-item"><span class="setting-label">Change PIN</span><button class="setting-edit" onclick="openChangePinModal()">Change</button></div></div>
+        </div>
+
+        <div class="page" id="page-bills">
             <div class="section"><div class="section-title">All Bills & Recurring</div><div id="all-bills"></div></div>
             <button class="add-btn" onclick="openBillModal()">+</button>
         </div>
@@ -146,6 +142,11 @@
             <div class="section"><div class="section-title">Income</div><div id="income-settings"></div><button class="quick-btn quick-btn-income" style="margin-top:1rem;width:100%;" onclick="openIncomeSetupModal()">+ Add Income Source</button></div>
             <div class="section"><div class="section-title">Spending Categories</div><div id="category-settings"></div><button class="quick-btn" style="margin-top:1rem;width:100%;background:#3498db;color:white;" onclick="openCategoryModal()">+ Add Category</button></div>
             <div class="section"><div class="section-title">Spending Limits</div><div id="limits-settings"></div><button class="quick-btn" style="margin-top:1rem;width:100%;background:#e67e22;color:white;" onclick="openLimitModal()">+ Set Category Limit</button></div>
+            <div class="section"><div class="section-title">Appearance</div><div class="setting-item"><span class="setting-label">Dark Mode</span><button class="setting-edit" onclick="toggleDarkMode()">🌙 Toggle</button></div></div>
+            <div class="section"><div class="section-title">Security</div><div class="setting-item"><span class="setting-label">Change PIN</span><button class="setting-edit" onclick="openChangePinModal()">Change</button></div></div>
+            <div class="section"><div class="section-title">Data</div><div class="setting-item"><span class="setting-label">Check for Updates</span><button class="setting-edit" style="background:#8e44ad;" onclick="checkForUpdates()">🔄 Update</button></div><div class="setting-item"><span class="setting-label">Export Backup</span><button class="setting-edit" style="background:#27ae60;" onclick="exportData()">💾 Export</button></div><div class="setting-item"><span class="setting-label">Import Backup</span><button class="setting-edit" style="background:#3498db;" onclick="document.getElementById('import-file').click()">📂 Import</button><input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(event)"></div><div class="setting-item"><span class="setting-label">Reset All Data</span><button class="setting-edit" style="background:#e74c3c;" onclick="resetAll()">Reset</button></div></div>
+        </div>
+
             <div class="section"><div class="section-title">Security</div><div class="setting-item"><span class="setting-label">Change PIN</span><button class="setting-edit" onclick="openChangePinModal()">Change</button></div></div>
             <div class="section"><div class="section-title">Data</div><div class="setting-item"><span class="setting-label">Check for Updates</span><button class="setting-edit" style="background:#8e44ad;" onclick="checkForUpdates()">🔄 Update</button></div><div class="setting-item"><span class="setting-label">Export Backup</span><button class="setting-edit" style="background:#27ae60;" onclick="exportData()">💾 Export</button></div><div class="setting-item"><span class="setting-label">Import Backup</span><button class="setting-edit" style="background:#3498db;" onclick="document.getElementById('import-file').click()">📂 Import</button><input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(event)"></div><div class="setting-item"><span class="setting-label">Reset All Data</span><button class="setting-edit" style="background:#e74c3c;" onclick="resetAll()">Reset</button></div></div>
         </div>
