@@ -90,7 +90,7 @@
         .timeline-bill { color: #e74c3c; }
         .timeline-spending { color: #e67e22; }
         .forecast-bar { height: 6px; border-radius: 3px; background: #eee; margin-top: 0.4rem; overflow: hidden; }
-        .forecast-bar-fill { height: 100%; border-radius: 3px; }
+            <div class="section"><div class="section-title">Data</div><div class="setting-item"><span class="setting-label">Export Backup</span><button class="setting-edit" style="background:#27ae60;" onclick="exportData()">💾 Export</button></div><div class="setting-item"><span class="setting-label">Import Backup</span><button class="setting-edit" style="background:#3498db;" onclick="document.getElementById('import-file').click()">📂 Import</button><input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(event)"></div><div class="setting-item"><span class="setting-label">Reset All Data</span><button class="setting-edit" style="background:#e74c3c;" onclick="resetAll()">Reset</button></div></div>
     </style>
 </head>
 <body>
@@ -137,7 +137,48 @@
                     <div class="section-title" style="margin-bottom:0;">Forecast</div>
                     <div style="display:flex;gap:0.4rem;">
                         <button class="view-toggle active" id="toggle-summary" onclick="setForecastView('summary')">Summary</button>
-                        <button class="view-toggle" id="toggle-timeline" onclick="setForecastView('timeline')">Timeline</button>
+        function resetAll() { if(!confirm('Erase ALL data?')) return; if(!confirm('Really?')) return; localStorage.removeItem('budgetbuddy'); checkSetup(); }
+
+        // ===== EXPORT / IMPORT =====
+        function exportData() {
+            const data = getData();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const date = new Date().toISOString().slice(0, 10);
+            a.href = url;
+            a.download = 'budget-buddy-backup-' + date + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert('Backup saved! Keep this file somewhere safe (iCloud, email it to yourself, etc.)');
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (!confirm('This will REPLACE all your current data with the backup. Continue?')) { event.target.value = ''; return; }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    // Validate it looks like budget data
+                    if (!imported.setup_complete || !imported.people) {
+                        alert('This doesn\'t look like a Budget Buddy backup file.');
+                        return;
+                    }
+                    localStorage.setItem('budgetbuddy', JSON.stringify(imported));
+                    alert('Data restored! Reloading...');
+                    location.reload();
+                } catch (err) {
+                    alert('Error reading file. Make sure it\'s a valid Budget Buddy backup.');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
                     </div>
                 </div>
                 <div style="display:flex;gap:0.4rem;margin-bottom:1rem;">
