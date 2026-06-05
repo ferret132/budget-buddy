@@ -106,10 +106,15 @@
         .pin-error-msg { color: #e74c3c; font-size: 0.85rem; margin-top: 1rem; min-height: 1.2rem; }
         /* Spending limit bar */
         .limit-bar { height: 4px; border-radius: 2px; background: #eee; margin-top: 0.3rem; }
-        .limit-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
-        .limit-warn { font-size: 0.7rem; color: #e67e22; margin-top: 0.2rem; }
-        /* Bill paid badge */
-        .bill-paid { color: #27ae60; font-size: 0.75rem; font-weight: 600; background: #e8f8f0; padding: 0.2rem 0.5rem; border-radius: 6px; }
+        <!-- SPENDING -->
+        <div class="page" id="page-spending">
+            <div class="section"><div class="section-title">This Week's Spending</div><div id="week-spending"></div></div>
+            <div class="section"><div class="section-title">By Category</div><div id="category-breakdown"></div></div>
+            <div class="section">
+                <div class="section-title">Monthly Summary</div>
+                <div id="monthly-summary"></div>
+            </div>
+        </div>
         /* Action buttons row */
         .action-row { display: flex; gap: 0.4rem; }
         .action-row button { padding: 0.3rem 0.6rem; border: none; border-radius: 6px; font-size: 0.7rem; cursor: pointer; color: white; }

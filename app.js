@@ -160,19 +160,66 @@ function saveBill() {
     const data = getData();
     const editId = parseInt(document.getElementById('bill-edit-id').value);
     if (editId) {
-        const bill = data.bills.find(b => b.id === editId);
-        bill.name = n; bill.amount = a; bill.due_day = d; bill.frequency = f;
-    } else {
-        data.bills.push({ name:n, amount:a, due_day:d, frequency:f, id:Date.now(), paid_this_month:false });
-    }
-    saveData(data); closeModal('bill-modal'); renderBills(); renderHome();
+    if(s.length===0){cEl.innerHTML='<div class="empty-state">No data yet.</div>';}
+    else{cEl.innerHTML=s.map(([c,t])=>{let extra='';if(data.limits[c]){const pct=Math.min(100,Math.round(t/data.limits[c]*100));const color=pct>=100?'#e74c3c':pct>=80?'#f39c12':'#27ae60';extra='<div class="limit-bar"><div class="limit-bar-fill" style="width:'+pct+'%;background:'+color+';"></div></div>';if(pct>=80)extra+='<div class="limit-warn">'+pct+'% of $'+data.limits[c]+' limit</div>';}return'<div style="padding:0.5rem 0;border-bottom:1px solid #f0f0f0;"><div class="bill-item" style="padding:0;border:none;"><div class="bill-name">'+c+'</div><div class="spend-amount">$'+t.toFixed(2)+'</div></div>'+extra+'</div>';}).join('');}
+    // Monthly summary
+    renderMonthlySummary(data);
 }
 
-function saveIncomeSource() {
-    const n=document.getElementById('setup-income-name').value.trim(), a=parseFloat(document.getElementById('setup-income-amount').value), f=document.getElementById('setup-income-freq').value, d=document.getElementById('setup-income-day').value;
-    if (!n||!a) return alert('Fill in name and amount');
-    const data = getData();
-    const editId = parseInt(document.getElementById('income-edit-id').value);
+// ===== RENDER MONTHLY SUMMARY =====
+function renderMonthlySummary(data) {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    const monthTransactions = data.transactions.filter(t => new Date(t.date) >= monthStart);
+    const totalIncome = monthTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const totalSpend = monthTransactions.filter(t => t.type === 'spend').reduce((s, t) => s + t.amount, 0);
+    const net = totalIncome - totalSpend;
+
+    const el = document.getElementById('monthly-summary');
+    let html = '<div style="text-align:center;margin-bottom:1rem;"><span style="font-size:0.9rem;font-weight:600;">' + monthName + '</span></div>';
+
+    // Big numbers
+    html += '<div style="display:flex;gap:0.8rem;margin-bottom:1rem;">';
+    html += '<div style="flex:1;text-align:center;background:#e8f8f0;border-radius:10px;padding:0.8rem;"><div style="font-size:0.7rem;color:#888;">Income</div><div style="font-size:1.2rem;font-weight:700;color:#27ae60;">$' + totalIncome.toFixed(0) + '</div></div>';
+    html += '<div style="flex:1;text-align:center;background:#fde8e8;border-radius:10px;padding:0.8rem;"><div style="font-size:0.7rem;color:#888;">Spent</div><div style="font-size:1.2rem;font-weight:700;color:#e74c3c;">$' + totalSpend.toFixed(0) + '</div></div>';
+    html += '<div style="flex:1;text-align:center;background:' + (net >= 0 ? '#e8f8f0' : '#fde8e8') + ';border-radius:10px;padding:0.8rem;"><div style="font-size:0.7rem;color:#888;">' + (net >= 0 ? 'Saved' : 'Over') + '</div><div style="font-size:1.2rem;font-weight:700;color:' + (net >= 0 ? '#27ae60' : '#e74c3c') + ';">$' + Math.abs(net).toFixed(0) + '</div></div>';
+    html += '</div>';
+
+    // Spending by person
+    if (data.people.length > 1) {
+        html += '<div style="margin-bottom:0.8rem;">';
+        const personTotals = {};
+        monthTransactions.filter(t => t.type === 'spend').forEach(t => { personTotals[t.who] = (personTotals[t.who] || 0) + t.amount; });
+        for (let person of data.people) {
+            const amt = personTotals[person] || 0;
+            const pct = totalSpend > 0 ? Math.round(amt / totalSpend * 100) : 0;
+            html += '<div class="bill-item"><div class="bill-name">' + person + '</div><div><span class="spend-amount">$' + amt.toFixed(0) + '</span> <span style="font-size:0.75rem;color:#888;">(' + pct + '%)</span></div></div>';
+        }
+        html += '</div>';
+    }
+
+    // Top categories this month
+    const monthCats = {};
+    monthTransactions.filter(t => t.type === 'spend').forEach(t => { monthCats[t.category] = (monthCats[t.category] || 0) + t.amount; });
+    const topCats = Object.entries(monthCats).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    if (topCats.length > 0) {
+        html += '<div style="font-size:0.8rem;color:#888;margin-bottom:0.4rem;">Top categories this month:</div>';
+        topCats.forEach(([cat, amt]) => {
+            const pct = Math.round(amt / totalSpend * 100);
+            html += '<div class="bill-item"><div class="bill-name">' + cat + '</div><div><span class="spend-amount">$' + amt.toFixed(0) + '</span> <span style="font-size:0.75rem;color:#888;">(' + pct + '%)</span></div></div>';
+        });
+    }
+
+    if (monthTransactions.length === 0) {
+        html = '<div class="empty-state">No transactions this month yet.</div>';
+    }
+
+    el.innerHTML = html;
+}
+
     if (editId) {
         const src = data.income_sources.find(s => s.id === editId);
         src.name = n; src.amount = a; src.frequency = f; src.pay_day = d;
