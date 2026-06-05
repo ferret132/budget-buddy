@@ -1,33 +1,48 @@
-// ===== BUDGET BUDDY - app.js =====
+// ===== BUDGET BUDDY - app.js (clean build) =====
 
 // ===== DATA =====
 function getData() {
-    const defaults = { people: [], income_sources: [], bills: [], categories: ['Groceries','Gas','Eating Out','Bills','Fun','Other'], transactions: [], balance: 0, setup_complete: false, pin: null, limits: {} };
+    const defaults = { people:[], income_sources:[], bills:[], categories:['Groceries','Gas','Eating Out','Bills','Fun','Other'], transactions:[], balance:0, setup_complete:false, pin:null, limits:{}, dark_mode:false };
     const stored = localStorage.getItem('budgetbuddy');
-    if (stored) { const d = JSON.parse(stored); if (!d.limits) d.limits = {}; if (!d.pin) d.pin = null; return d; }
+    if (stored) { const d = JSON.parse(stored); if(!d.limits) d.limits={}; if(!d.pin) d.pin=null; if(d.dark_mode===undefined) d.dark_mode=false; return d; }
     localStorage.setItem('budgetbuddy', JSON.stringify(defaults));
     return defaults;
 }
 function saveData(data) { localStorage.setItem('budgetbuddy', JSON.stringify(data)); }
 
+// ===== DARK MODE =====
+function applyDarkMode(enabled) {
+    if (enabled) {
+        document.body.classList.add('dark');
+        document.querySelector('meta[name="theme-color"]').content = '#1a1a2e';
+    } else {
+        document.body.classList.remove('dark');
+        document.querySelector('meta[name="theme-color"]').content = '#2c3e50';
+    }
+}
+function toggleDarkMode() {
+    const data = getData();
+    data.dark_mode = !data.dark_mode;
+    saveData(data);
+    applyDarkMode(data.dark_mode);
+    renderSettings();
+}
+
 // ===== PIN =====
 let pinEntry = '';
-let pinMode = 'unlock'; // 'unlock', 'setup', 'create'
+let pinMode = 'unlock';
 
 function checkInit() {
     const data = getData();
+    applyDarkMode(data.dark_mode);
     if (!data.setup_complete) { showScreen('setup-screen'); }
     else if (data.pin) { showScreen('pin-screen'); pinMode = 'unlock'; document.getElementById('pin-message').textContent = 'Enter your PIN'; }
     else { showScreen('app-container'); renderHome(); }
 }
-
 function showScreen(id) {
-    ['pin-screen','setup-screen','app-container'].forEach(s => {
-        document.getElementById(s).classList.remove('active');
-    });
+    ['pin-screen','setup-screen','app-container'].forEach(s => document.getElementById(s).classList.remove('active'));
     document.getElementById(id).classList.add('active');
 }
-
 function pinPress(num) {
     if (pinEntry.length >= 4) return;
     pinEntry += num;
@@ -35,28 +50,14 @@ function pinPress(num) {
     if (pinEntry.length === 4) {
         setTimeout(() => {
             const data = getData();
-            if (pinMode === 'unlock') {
-                if (pinEntry === data.pin) { pinEntry = ''; showScreen('app-container'); renderHome(); }
-                else { pinError('Wrong PIN'); }
-            }
+            if (pinEntry === data.pin) { pinEntry = ''; showScreen('app-container'); renderHome(); }
+            else { pinError('Wrong PIN'); }
         }, 200);
     }
 }
-
-function pinDelete() { pinEntry = pinEntry.slice(0, -1); updatePinDots(); document.getElementById('pin-error').textContent = ''; }
-
-function updatePinDots() {
-    for (let i = 0; i < 4; i++) {
-        const dot = document.getElementById('dot-' + i);
-        dot.className = 'pin-dot' + (i < pinEntry.length ? ' filled' : '');
-    }
-}
-
-function pinError(msg) {
-    document.getElementById('pin-error').textContent = msg;
-    document.querySelectorAll('.pin-dot').forEach(d => d.classList.add('error'));
-    setTimeout(() => { pinEntry = ''; updatePinDots(); document.getElementById('pin-error').textContent = ''; }, 1000);
-}
+function pinDelete() { pinEntry = pinEntry.slice(0,-1); updatePinDots(); document.getElementById('pin-error').textContent = ''; }
+function updatePinDots() { for(let i=0;i<4;i++){document.getElementById('dot-'+i).className='pin-dot'+(i<pinEntry.length?' filled':'');} }
+function pinError(msg) { document.getElementById('pin-error').textContent=msg; document.querySelectorAll('.pin-dot').forEach(d=>d.classList.add('error')); setTimeout(()=>{pinEntry='';updatePinDots();document.getElementById('pin-error').textContent='';},1000); }
 
 // ===== SETUP =====
 function completeSetup() {
@@ -66,292 +67,174 @@ function completeSetup() {
     const pin = document.getElementById('setup-pin').value.trim();
     if (pin && pin.length !== 4) return alert('PIN must be 4 digits');
     const data = getData();
-    data.people = [name];
-    if (partner) data.people.push(partner);
-    data.pin = pin || null;
-    data.setup_complete = true;
-    saveData(data);
-    showScreen('app-container');
-    renderHome();
+    data.people = [name]; if (partner) data.people.push(partner);
+    data.pin = pin || null; data.setup_complete = true;
+    saveData(data); showScreen('app-container'); renderHome();
 }
 
 // ===== NAV =====
 function showPage(page) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById('page-' + page).classList.add('active');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    document.getElementById('page-'+page).classList.add('active');
     event.target.closest('.nav-item').classList.add('active');
-    if (page === 'home') renderHome();
-    if (page === 'spending') renderSpending();
-    if (page === 'forecast') renderForecast();
-    if (page === 'bills') renderBills();
-    if (page === 'settings') renderSettings();
+    if(page==='home') renderHome(); if(page==='spending') renderSpending();
+    if(page==='forecast') renderForecast(); if(page==='bills') renderBills(); if(page==='settings') renderSettings();
 }
 
 // ===== MODALS =====
-function openSpendModal() { const data=getData(); document.getElementById('spend-category').innerHTML=data.categories.map(c=>'<option>'+c+'</option>').join(''); document.getElementById('spend-who').innerHTML=data.people.map(p=>'<option>'+p+'</option>').join(''); document.getElementById('spend-amount').value=''; document.getElementById('spend-note').value=''; document.getElementById('spend-modal').classList.add('active'); }
-function openIncomeModal() { const data=getData(); const s=document.getElementById('income-source'); s.innerHTML=data.income_sources.length>0?data.income_sources.map(x=>'<option>'+x.name+'</option>').join(''):'<option>Other</option>'; document.getElementById('income-amount').value=''; document.getElementById('income-note').value=''; document.getElementById('income-modal').classList.add('active'); }
-function openBillModal(editId) {
-    const data = getData();
-    document.getElementById('bill-edit-id').value = editId || '';
-    if (editId) {
-        const bill = data.bills.find(b => b.id === editId);
-        document.getElementById('bill-modal-title').textContent = 'Edit Bill';
-        document.getElementById('bill-name').value = bill.name;
-        document.getElementById('bill-amount').value = bill.amount;
-        document.getElementById('bill-due').value = bill.due_day;
-        document.getElementById('bill-frequency').value = bill.frequency;
-    } else {
-        document.getElementById('bill-modal-title').textContent = 'Add Bill';
-        document.getElementById('bill-name').value = '';
-        document.getElementById('bill-amount').value = '';
-        document.getElementById('bill-due').value = '';
-    }
-    document.getElementById('bill-modal').classList.add('active');
-}
-function openIncomeSetupModal(editId) {
-    const data = getData();
-    document.getElementById('income-edit-id').value = editId || '';
-    if (editId) {
-        const src = data.income_sources.find(s => s.id === editId);
-        document.getElementById('income-setup-title').textContent = 'Edit Income Source';
-        document.getElementById('setup-income-name').value = src.name;
-        document.getElementById('setup-income-amount').value = src.amount;
-        document.getElementById('setup-income-freq').value = src.frequency;
-        document.getElementById('setup-income-day').value = src.pay_day;
-    } else {
-        document.getElementById('income-setup-title').textContent = 'Add Income Source';
-        document.getElementById('setup-income-name').value = '';
-        document.getElementById('setup-income-amount').value = '';
-    }
-    document.getElementById('income-setup-modal').classList.add('active');
-}
-function openCategoryModal() { document.getElementById('new-category').value=''; document.getElementById('category-modal').classList.add('active'); }
-function openPersonModal() { document.getElementById('new-person').value=''; document.getElementById('person-modal').classList.add('active'); }
-function openLimitModal() { const data=getData(); document.getElementById('limit-category').innerHTML=data.categories.map(c=>'<option>'+c+'</option>').join(''); document.getElementById('limit-amount').value=''; document.getElementById('limit-modal').classList.add('active'); }
-function openChangePinModal() { document.getElementById('current-pin').value=''; document.getElementById('new-pin').value=''; document.getElementById('change-pin-modal').classList.add('active'); }
-function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-document.querySelectorAll('.modal-overlay').forEach(o => { o.addEventListener('click', e => { if(e.target===o) o.classList.remove('active'); }); });
+function openSpendModal(){const data=getData();document.getElementById('spend-category').innerHTML=data.categories.map(c=>'<option>'+c+'</option>').join('');document.getElementById('spend-who').innerHTML=data.people.map(p=>'<option>'+p+'</option>').join('');document.getElementById('spend-amount').value='';document.getElementById('spend-note').value='';document.getElementById('spend-modal').classList.add('active');}
+function openIncomeModal(){const data=getData();const s=document.getElementById('income-source');s.innerHTML=data.income_sources.length>0?data.income_sources.map(x=>'<option>'+x.name+'</option>').join(''):'<option>Other</option>';document.getElementById('income-amount').value='';document.getElementById('income-note').value='';document.getElementById('income-modal').classList.add('active');}
+function openBillModal(editId){const data=getData();document.getElementById('bill-edit-id').value=editId||'';if(editId){const b=data.bills.find(x=>x.id===editId);document.getElementById('bill-modal-title').textContent='Edit Bill';document.getElementById('bill-name').value=b.name;document.getElementById('bill-amount').value=b.amount;document.getElementById('bill-due').value=b.due_day;document.getElementById('bill-frequency').value=b.frequency;}else{document.getElementById('bill-modal-title').textContent='Add Bill';document.getElementById('bill-name').value='';document.getElementById('bill-amount').value='';document.getElementById('bill-due').value='';}document.getElementById('bill-modal').classList.add('active');}
+function openIncomeSetupModal(editId){const data=getData();document.getElementById('income-edit-id').value=editId||'';if(editId){const s=data.income_sources.find(x=>x.id===editId);document.getElementById('income-setup-title').textContent='Edit Income Source';document.getElementById('setup-income-name').value=s.name;document.getElementById('setup-income-amount').value=s.amount;document.getElementById('setup-income-freq').value=s.frequency;document.getElementById('setup-income-day').value=s.pay_day;}else{document.getElementById('income-setup-title').textContent='Add Income Source';document.getElementById('setup-income-name').value='';document.getElementById('setup-income-amount').value='';}document.getElementById('income-setup-modal').classList.add('active');}
+function openCategoryModal(){document.getElementById('new-category').value='';document.getElementById('category-modal').classList.add('active');}
+function openPersonModal(){document.getElementById('new-person').value='';document.getElementById('person-modal').classList.add('active');}
+function openLimitModal(){const data=getData();document.getElementById('limit-category').innerHTML=data.categories.map(c=>'<option>'+c+'</option>').join('');document.getElementById('limit-amount').value='';document.getElementById('limit-modal').classList.add('active');}
+function openChangePinModal(){document.getElementById('current-pin').value='';document.getElementById('new-pin').value='';document.getElementById('change-pin-modal').classList.add('active');}
+function closeModal(id){document.getElementById(id).classList.remove('active');}
+document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('active');});});
 
 // ===== SAVES =====
-function saveSpend() {
-    const a = parseFloat(document.getElementById('spend-amount').value);
-    if (!a || a <= 0) return alert('Enter an amount');
-    const data = getData();
-    const cat = document.getElementById('spend-category').value;
-    data.transactions.push({ type:'spend', amount:a, category:cat, who:document.getElementById('spend-who').value, note:document.getElementById('spend-note').value, date:new Date().toISOString(), id:Date.now() });
-    data.balance -= a;
-    saveData(data);
-    closeModal('spend-modal');
-    // Check spending limit
-    if (data.limits[cat]) {
-        const monthSpend = getMonthSpendByCategory(data, cat);
-        if (monthSpend >= data.limits[cat]) alert('⚠️ You\'ve hit your ' + cat + ' limit for the month ($' + data.limits[cat] + ')!');
-        else if (monthSpend >= data.limits[cat] * 0.8) alert('⚠️ Heads up: You\'re at ' + Math.round(monthSpend/data.limits[cat]*100) + '% of your ' + cat + ' limit.');
-    }
+function saveSpend(){
+    const a=parseFloat(document.getElementById('spend-amount').value);if(!a||a<=0)return alert('Enter an amount');
+    const data=getData(),cat=document.getElementById('spend-category').value;
+    data.transactions.push({type:'spend',amount:a,category:cat,who:document.getElementById('spend-who').value,note:document.getElementById('spend-note').value,date:new Date().toISOString(),id:Date.now()});
+    data.balance-=a;saveData(data);closeModal('spend-modal');
+    if(data.limits[cat]){const ms=getMonthSpendByCategory(data,cat);if(ms>=data.limits[cat])alert('⚠️ Hit your '+cat+' limit ($'+data.limits[cat]+')!');else if(ms>=data.limits[cat]*0.8)alert('⚠️ '+Math.round(ms/data.limits[cat]*100)+'% of '+cat+' limit');}
     renderHome();
 }
-
-function saveIncome() { const a=parseFloat(document.getElementById('income-amount').value); if(!a||a<=0) return alert('Enter an amount'); const data=getData(); data.transactions.push({type:'income',amount:a,source:document.getElementById('income-source').value,note:document.getElementById('income-note').value,date:new Date().toISOString(),id:Date.now()}); data.balance+=a; saveData(data); closeModal('income-modal'); renderHome(); }
-
-function saveBill() {
-    const n=document.getElementById('bill-name').value.trim(), a=parseFloat(document.getElementById('bill-amount').value), d=parseInt(document.getElementById('bill-due').value), f=document.getElementById('bill-frequency').value;
-    if (!n||!a||!d) return alert('Fill in all fields');
-    const data = getData();
-    const editId = parseInt(document.getElementById('bill-edit-id').value);
-    if (editId) {
-    if(s.length===0){cEl.innerHTML='<div class="empty-state">No data yet.</div>';}
-    else{cEl.innerHTML=s.map(([c,t])=>{let extra='';if(data.limits[c]){const pct=Math.min(100,Math.round(t/data.limits[c]*100));const color=pct>=100?'#e74c3c':pct>=80?'#f39c12':'#27ae60';extra='<div class="limit-bar"><div class="limit-bar-fill" style="width:'+pct+'%;background:'+color+';"></div></div>';if(pct>=80)extra+='<div class="limit-warn">'+pct+'% of $'+data.limits[c]+' limit</div>';}return'<div style="padding:0.5rem 0;border-bottom:1px solid #f0f0f0;"><div class="bill-item" style="padding:0;border:none;"><div class="bill-name">'+c+'</div><div class="spend-amount">$'+t.toFixed(2)+'</div></div>'+extra+'</div>';}).join('');}
-    // Monthly summary
-    renderMonthlySummary(data);
+function saveIncome(){const a=parseFloat(document.getElementById('income-amount').value);if(!a||a<=0)return alert('Enter an amount');const data=getData();data.transactions.push({type:'income',amount:a,source:document.getElementById('income-source').value,note:document.getElementById('income-note').value,date:new Date().toISOString(),id:Date.now()});data.balance+=a;saveData(data);closeModal('income-modal');renderHome();}
+function saveBill(){
+    const n=document.getElementById('bill-name').value.trim(),a=parseFloat(document.getElementById('bill-amount').value),d=parseInt(document.getElementById('bill-due').value),f=document.getElementById('bill-frequency').value;
+    if(!n||!a||!d)return alert('Fill in all fields');const data=getData();const editId=parseInt(document.getElementById('bill-edit-id').value);
+    if(editId){const b=data.bills.find(x=>x.id===editId);b.name=n;b.amount=a;b.due_day=d;b.frequency=f;}
+    else{data.bills.push({name:n,amount:a,due_day:d,frequency:f,id:Date.now(),paid_this_month:false});}
+    saveData(data);closeModal('bill-modal');renderBills();renderHome();
 }
-
-// ===== RENDER MONTHLY SUMMARY =====
-function renderMonthlySummary(data) {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
-    const monthTransactions = data.transactions.filter(t => new Date(t.date) >= monthStart);
-    const totalIncome = monthTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    const totalSpend = monthTransactions.filter(t => t.type === 'spend').reduce((s, t) => s + t.amount, 0);
-    const net = totalIncome - totalSpend;
-
-    const el = document.getElementById('monthly-summary');
-    let html = '<div style="text-align:center;margin-bottom:1rem;"><span style="font-size:0.9rem;font-weight:600;">' + monthName + '</span></div>';
-
-    // Big numbers
-    html += '<div style="display:flex;gap:0.8rem;margin-bottom:1rem;">';
-    html += '<div style="flex:1;text-align:center;background:#e8f8f0;border-radius:10px;padding:0.8rem;"><div style="font-size:0.7rem;color:#888;">Income</div><div style="font-size:1.2rem;font-weight:700;color:#27ae60;">$' + totalIncome.toFixed(0) + '</div></div>';
-    html += '<div style="flex:1;text-align:center;background:#fde8e8;border-radius:10px;padding:0.8rem;"><div style="font-size:0.7rem;color:#888;">Spent</div><div style="font-size:1.2rem;font-weight:700;color:#e74c3c;">$' + totalSpend.toFixed(0) + '</div></div>';
-    html += '<div style="flex:1;text-align:center;background:' + (net >= 0 ? '#e8f8f0' : '#fde8e8') + ';border-radius:10px;padding:0.8rem;"><div style="font-size:0.7rem;color:#888;">' + (net >= 0 ? 'Saved' : 'Over') + '</div><div style="font-size:1.2rem;font-weight:700;color:' + (net >= 0 ? '#27ae60' : '#e74c3c') + ';">$' + Math.abs(net).toFixed(0) + '</div></div>';
-    html += '</div>';
-
-    // Spending by person
-    if (data.people.length > 1) {
-        html += '<div style="margin-bottom:0.8rem;">';
-        const personTotals = {};
-        monthTransactions.filter(t => t.type === 'spend').forEach(t => { personTotals[t.who] = (personTotals[t.who] || 0) + t.amount; });
-        for (let person of data.people) {
-            const amt = personTotals[person] || 0;
-            const pct = totalSpend > 0 ? Math.round(amt / totalSpend * 100) : 0;
-            html += '<div class="bill-item"><div class="bill-name">' + person + '</div><div><span class="spend-amount">$' + amt.toFixed(0) + '</span> <span style="font-size:0.75rem;color:#888;">(' + pct + '%)</span></div></div>';
-        }
-        html += '</div>';
-    }
-
-    // Top categories this month
-    const monthCats = {};
-    monthTransactions.filter(t => t.type === 'spend').forEach(t => { monthCats[t.category] = (monthCats[t.category] || 0) + t.amount; });
-    const topCats = Object.entries(monthCats).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-    if (topCats.length > 0) {
-        html += '<div style="font-size:0.8rem;color:#888;margin-bottom:0.4rem;">Top categories this month:</div>';
-        topCats.forEach(([cat, amt]) => {
-            const pct = Math.round(amt / totalSpend * 100);
-            html += '<div class="bill-item"><div class="bill-name">' + cat + '</div><div><span class="spend-amount">$' + amt.toFixed(0) + '</span> <span style="font-size:0.75rem;color:#888;">(' + pct + '%)</span></div></div>';
-        });
-    }
-
-    if (monthTransactions.length === 0) {
-        html = '<div class="empty-state">No transactions this month yet.</div>';
-    }
-
-    el.innerHTML = html;
+function saveIncomeSource(){
+    const n=document.getElementById('setup-income-name').value.trim(),a=parseFloat(document.getElementById('setup-income-amount').value),f=document.getElementById('setup-income-freq').value,d=document.getElementById('setup-income-day').value;
+    if(!n||!a)return alert('Fill in name and amount');const data=getData();const editId=parseInt(document.getElementById('income-edit-id').value);
+    if(editId){const s=data.income_sources.find(x=>x.id===editId);s.name=n;s.amount=a;s.frequency=f;s.pay_day=d;}
+    else{data.income_sources.push({name:n,amount:a,frequency:f,pay_day:d,id:Date.now()});}
+    saveData(data);closeModal('income-setup-modal');renderSettings();
 }
-
-    if (editId) {
-        const src = data.income_sources.find(s => s.id === editId);
-        src.name = n; src.amount = a; src.frequency = f; src.pay_day = d;
-    } else {
-        data.income_sources.push({ name:n, amount:a, frequency:f, pay_day:d, id:Date.now() });
-    }
-    saveData(data); closeModal('income-setup-modal'); renderSettings();
-}
-
-function saveCategory() { const n=document.getElementById('new-category').value.trim(); if(!n) return alert('Enter a name'); const data=getData(); if(!data.categories.includes(n)){data.categories.push(n);saveData(data);} closeModal('category-modal'); renderSettings(); }
-function savePerson() { const n=document.getElementById('new-person').value.trim(); if(!n) return alert('Enter a name'); const data=getData(); if(!data.people.includes(n)){data.people.push(n);saveData(data);} closeModal('person-modal'); renderSettings(); }
-function saveLimit() { const cat=document.getElementById('limit-category').value, a=parseFloat(document.getElementById('limit-amount').value); if(!a||a<=0) return alert('Enter a limit amount'); const data=getData(); data.limits[cat]=a; saveData(data); closeModal('limit-modal'); renderSettings(); }
-function changePin() { const cur=document.getElementById('current-pin').value, nw=document.getElementById('new-pin').value; const data=getData(); if(data.pin&&cur!==data.pin) return alert('Current PIN is wrong'); if(nw.length!==4) return alert('New PIN must be 4 digits'); data.pin=nw; saveData(data); closeModal('change-pin-modal'); alert('PIN updated!'); }
+function saveCategory(){const n=document.getElementById('new-category').value.trim();if(!n)return alert('Enter a name');const data=getData();if(!data.categories.includes(n)){data.categories.push(n);saveData(data);}closeModal('category-modal');renderSettings();}
+function savePerson(){const n=document.getElementById('new-person').value.trim();if(!n)return alert('Enter a name');const data=getData();if(!data.people.includes(n)){data.people.push(n);saveData(data);}closeModal('person-modal');renderSettings();}
+function saveLimit(){const cat=document.getElementById('limit-category').value,a=parseFloat(document.getElementById('limit-amount').value);if(!a||a<=0)return alert('Enter a limit');const data=getData();data.limits[cat]=a;saveData(data);closeModal('limit-modal');renderSettings();}
+function changePin(){const cur=document.getElementById('current-pin').value,nw=document.getElementById('new-pin').value;const data=getData();if(data.pin&&cur!==data.pin)return alert('Wrong current PIN');if(nw.length!==4)return alert('New PIN must be 4 digits');data.pin=nw;saveData(data);closeModal('change-pin-modal');alert('PIN updated!');}
 
 // ===== DELETES =====
-function deleteBill(id) { if(!confirm('Delete this bill?')) return; const data=getData(); data.bills=data.bills.filter(b=>b.id!==id); saveData(data); renderBills(); renderHome(); }
-function deleteIncomeSource(id) { if(!confirm('Delete?')) return; const data=getData(); data.income_sources=data.income_sources.filter(s=>s.id!==id); saveData(data); renderSettings(); }
-function deleteCategory(name) { if(!confirm('Delete "'+name+'"?')) return; const data=getData(); data.categories=data.categories.filter(c=>c!==name); delete data.limits[name]; saveData(data); renderSettings(); }
-function deletePerson(name) { const data=getData(); if(data.people.length<=1) return alert('Need at least one person!'); if(!confirm('Remove "'+name+'"?')) return; data.people=data.people.filter(p=>p!==name); saveData(data); renderSettings(); }
-function deleteTransaction(id) { if(!confirm('Delete this transaction?')) return; const data=getData(); const t=data.transactions.find(x=>x.id===id); if(t){if(t.type==='spend')data.balance+=t.amount;else data.balance-=t.amount;} data.transactions=data.transactions.filter(x=>x.id!==id); saveData(data); renderHome(); renderSpending(); }
-function deleteLimit(cat) { const data=getData(); delete data.limits[cat]; saveData(data); renderSettings(); }
-function toggleBillPaid(id) { const data=getData(); const bill=data.bills.find(b=>b.id===id); bill.paid_this_month=!bill.paid_this_month; saveData(data); renderBills(); renderHome(); }
-function resetAll() { if(!confirm('Erase ALL data?')) return; if(!confirm('Really?')) return; localStorage.removeItem('budgetbuddy'); location.reload(); }
+function deleteBill(id){if(!confirm('Delete this bill?'))return;const data=getData();data.bills=data.bills.filter(b=>b.id!==id);saveData(data);renderBills();renderHome();}
+function deleteIncomeSource(id){if(!confirm('Delete?'))return;const data=getData();data.income_sources=data.income_sources.filter(s=>s.id!==id);saveData(data);renderSettings();}
+function deleteCategory(name){if(!confirm('Delete "'+name+'"?'))return;const data=getData();data.categories=data.categories.filter(c=>c!==name);delete data.limits[name];saveData(data);renderSettings();}
+function deletePerson(name){const data=getData();if(data.people.length<=1)return alert('Need at least one person!');if(!confirm('Remove "'+name+'"?'))return;data.people=data.people.filter(p=>p!==name);saveData(data);renderSettings();}
+function deleteTransaction(id){if(!confirm('Delete this?'))return;const data=getData();const t=data.transactions.find(x=>x.id===id);if(t){if(t.type==='spend')data.balance+=t.amount;else data.balance-=t.amount;}data.transactions=data.transactions.filter(x=>x.id!==id);saveData(data);renderHome();renderSpending();}
+function deleteLimit(cat){const data=getData();delete data.limits[cat];saveData(data);renderSettings();}
+function toggleBillPaid(id){const data=getData();const b=data.bills.find(x=>x.id===id);b.paid_this_month=!b.paid_this_month;saveData(data);renderBills();renderHome();}
+function resetAll(){if(!confirm('Erase ALL data?'))return;if(!confirm('Really?'))return;localStorage.removeItem('budgetbuddy');location.reload();}
 
 // ===== EXPORT / IMPORT =====
-function exportData() { const data=getData(); const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='budget-buddy-backup-'+new Date().toISOString().slice(0,10)+'.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); alert('Backup saved!'); }
-function importData(event) { const file=event.target.files[0]; if(!file) return; if(!confirm('Replace all current data?')){ event.target.value=''; return; } const reader=new FileReader(); reader.onload=function(e){ try{ const d=JSON.parse(e.target.result); if(!d.setup_complete||!d.people){alert('Not a valid backup.');return;} localStorage.setItem('budgetbuddy',JSON.stringify(d)); alert('Restored!'); location.reload(); }catch(err){alert('Error reading file.');} }; reader.readAsText(file); event.target.value=''; }
+function exportData(){const data=getData();const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='budget-buddy-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);alert('Backup saved!');}
+function importData(event){const file=event.target.files[0];if(!file)return;if(!confirm('Replace all current data?')){event.target.value='';return;}const reader=new FileReader();reader.onload=function(e){try{const d=JSON.parse(e.target.result);if(!d.setup_complete||!d.people){alert('Not a valid backup.');return;}localStorage.setItem('budgetbuddy',JSON.stringify(d));alert('Restored!');location.reload();}catch(err){alert('Error reading file.');}};reader.readAsText(file);event.target.value='';}
+
+// ===== CHECK FOR UPDATES =====
+function checkForUpdates(){if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>{r.forEach(reg=>reg.unregister());});caches.keys().then(keys=>{Promise.all(keys.map(k=>caches.delete(k))).then(()=>{alert('Updated! Your data is safe.');location.reload(true);});});}else{location.reload(true);}}
 
 // ===== RENDER HOME =====
-function renderHome() {
-    const data=getData(), today=new Date(), nextPay=getNextPayDay(data);
-    const billsDue=getUpcomingBillsBeforePayday(data,nextPay);
-    const safe=data.balance-billsDue;
+function renderHome(){
+    const data=getData(),today=new Date(),nextPay=getNextPayDay(data);
+    const billsDue=getUpcomingBillsBeforePayday(data,nextPay),safe=data.balance-billsDue;
     const el=document.getElementById('safe-amount');
     el.textContent='$'+Math.max(0,safe).toFixed(0);
     el.className='safe-amount '+(safe>200?'safe-green':safe>50?'safe-yellow':'safe-red');
     const days=nextPay?Math.ceil((nextPay-today)/86400000):'?';
     document.getElementById('safe-period').textContent='until payday ('+days+' days) • Balance: $'+data.balance.toFixed(2);
-    // Upcoming bills
-    const bEl=document.getElementById('upcoming-bills'), sorted=getUpcomingBillsSorted(data);
+    const bEl=document.getElementById('upcoming-bills'),sorted=getUpcomingBillsSorted(data);
     bEl.innerHTML=sorted.length===0?'<div class="empty-state">No bills set up yet.</div>':sorted.slice(0,4).map(b=>{const t=b.daysUntil===0?'Due TODAY':b.daysUntil===1?'Due tomorrow':'Due in '+b.daysUntil+' days';const paid=b.paid_this_month?'<span class="bill-paid">PAID</span>':'';return'<div class="bill-item"><div><div class="bill-name">'+b.name+' '+paid+'</div><div class="'+(b.daysUntil<=3&&!b.paid_this_month?'bill-due-soon':'bill-due')+'">'+t+'</div></div><div class="bill-amount">'+(b.paid_this_month?'✓':'$'+b.amount.toFixed(2))+'</div></div>';}).join('');
-    // Recent spending
-    const sEl=document.getElementById('recent-spending'), recent=data.transactions.filter(t=>t.type==='spend').slice(-5).reverse();
+    const sEl=document.getElementById('recent-spending'),recent=data.transactions.filter(t=>t.type==='spend').slice(-5).reverse();
     sEl.innerHTML=recent.length===0?'<div class="empty-state">No spending logged yet.</div>':recent.map(t=>{const d=new Date(t.date).toLocaleDateString('en-US',{month:'short',day:'numeric'});return'<div class="spend-item"><div><div class="bill-name">'+(t.note||t.category)+'</div><div class="spend-cat">'+t.category+' • '+t.who+' • '+d+'</div></div><div style="display:flex;align-items:center;gap:0.5rem;"><span class="spend-amount">-$'+t.amount.toFixed(2)+'</span><button style="background:none;border:none;color:#e74c3c;font-size:0.8rem;cursor:pointer;" onclick="deleteTransaction('+t.id+')">✕</button></div></div>';}).join('');
 }
 
 // ===== RENDER SPENDING =====
-function renderSpending() {
+function renderSpending(){
     const data=getData(),now=new Date(),ago=new Date(now-7*86400000);
     const week=data.transactions.filter(t=>t.type==='spend'&&new Date(t.date)>=ago);
     const wEl=document.getElementById('week-spending');
     if(week.length===0){wEl.innerHTML='<div class="empty-state">No spending this week.</div>';}
-    else{const tot=week.reduce((s,t)=>s+t.amount,0);let h='<div class="bill-item"><div class="bill-name">Total this week</div><div class="spend-amount">$'+tot.toFixed(2)+'</div></div>';h+=week.reverse().map(t=>{const d=new Date(t.date).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});return'<div class="spend-item"><div><div class="bill-name">'+(t.note||t.category)+'</div><div class="spend-cat">'+t.who+' • '+d+'</div></div><div style="display:flex;align-items:center;gap:0.5rem;"><span class="spend-amount">-$'+t.amount.toFixed(2)+'</span><button style="background:none;border:none;color:#e74c3c;font-size:0.8rem;cursor:pointer;" onclick="deleteTransaction('+t.id+')">✕</button></div></div>';}).join('');wEl.innerHTML=h;}
-    // Category breakdown with limits
+    else{const tot=week.reduce((s,t)=>s+t.amount,0);let h='<div class="bill-item"><div class="bill-name">Total this week</div><div class="spend-amount">$'+tot.toFixed(2)+'</div></div>';h+=week.slice().reverse().map(t=>{const d=new Date(t.date).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});return'<div class="spend-item"><div><div class="bill-name">'+(t.note||t.category)+'</div><div class="spend-cat">'+t.who+' • '+d+'</div></div><div style="display:flex;align-items:center;gap:0.5rem;"><span class="spend-amount">-$'+t.amount.toFixed(2)+'</span><button style="background:none;border:none;color:#e74c3c;font-size:0.8rem;cursor:pointer;" onclick="deleteTransaction('+t.id+')">✕</button></div></div>';}).join('');wEl.innerHTML=h;}
     const cEl=document.getElementById('category-breakdown'),cats={};week.forEach(t=>{cats[t.category]=(cats[t.category]||0)+t.amount;});const s=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
     if(s.length===0){cEl.innerHTML='<div class="empty-state">No data yet.</div>';}
     else{cEl.innerHTML=s.map(([c,t])=>{let extra='';if(data.limits[c]){const pct=Math.min(100,Math.round(t/data.limits[c]*100));const color=pct>=100?'#e74c3c':pct>=80?'#f39c12':'#27ae60';extra='<div class="limit-bar"><div class="limit-bar-fill" style="width:'+pct+'%;background:'+color+';"></div></div>';if(pct>=80)extra+='<div class="limit-warn">'+pct+'% of $'+data.limits[c]+' limit</div>';}return'<div style="padding:0.5rem 0;border-bottom:1px solid #f0f0f0;"><div class="bill-item" style="padding:0;border:none;"><div class="bill-name">'+c+'</div><div class="spend-amount">$'+t.toFixed(2)+'</div></div>'+extra+'</div>';}).join('');}
+    renderMonthlySummary(data);
+}
+
+// ===== RENDER MONTHLY SUMMARY =====
+function renderMonthlySummary(data){
+    const now=new Date(),monthStart=new Date(now.getFullYear(),now.getMonth(),1);
+    const monthName=now.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    const mt=data.transactions.filter(t=>new Date(t.date)>=monthStart);
+    const totalIn=mt.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+    const totalOut=mt.filter(t=>t.type==='spend').reduce((s,t)=>s+t.amount,0);
+    const net=totalIn-totalOut;
+    const el=document.getElementById('monthly-summary');
+    let html='<div style="text-align:center;margin-bottom:1rem;"><span style="font-size:0.9rem;font-weight:600;">'+monthName+'</span></div>';
+    html+='<div style="display:flex;gap:0.8rem;margin-bottom:1rem;">';
+    html+='<div style="flex:1;text-align:center;background:#e8f8f0;border-radius:10px;padding:0.8rem;"><div style="font-size:0.7rem;color:#888;">Income</div><div style="font-size:1.2rem;font-weight:700;color:#27ae60;">$'+totalIn.toFixed(0)+'</div></div>';
+    html+='<div style="flex:1;text-align:center;background:#fde8e8;border-radius:10px;padding:0.8rem;"><div style="font-size:0.7rem;color:#888;">Spent</div><div style="font-size:1.2rem;font-weight:700;color:#e74c3c;">$'+totalOut.toFixed(0)+'</div></div>';
+    html+='<div style="flex:1;text-align:center;background:'+(net>=0?'#e8f8f0':'#fde8e8')+';border-radius:10px;padding:0.8rem;"><div style="font-size:0.7rem;color:#888;">'+(net>=0?'Saved':'Over')+'</div><div style="font-size:1.2rem;font-weight:700;color:'+(net>=0?'#27ae60':'#e74c3c')+';">$'+Math.abs(net).toFixed(0)+'</div></div>';
+    html+='</div>';
+    if(data.people.length>1){html+='<div style="margin-bottom:0.8rem;">';const pt={};mt.filter(t=>t.type==='spend').forEach(t=>{pt[t.who]=(pt[t.who]||0)+t.amount;});for(let p of data.people){const amt=pt[p]||0;const pct=totalOut>0?Math.round(amt/totalOut*100):0;html+='<div class="bill-item"><div class="bill-name">'+p+'</div><div><span class="spend-amount">$'+amt.toFixed(0)+'</span> <span style="font-size:0.75rem;color:#888;">('+pct+'%)</span></div></div>';}html+='</div>';}
+    const mc={};mt.filter(t=>t.type==='spend').forEach(t=>{mc[t.category]=(mc[t.category]||0)+t.amount;});const tc=Object.entries(mc).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    if(tc.length>0){html+='<div style="font-size:0.8rem;color:#888;margin-bottom:0.4rem;">Top categories:</div>';tc.forEach(([cat,amt])=>{const pct=Math.round(amt/totalOut*100);html+='<div class="bill-item"><div class="bill-name">'+cat+'</div><div><span class="spend-amount">$'+amt.toFixed(0)+'</span> <span style="font-size:0.75rem;color:#888;">('+pct+'%)</span></div></div>';});}
+    if(mt.length===0)html='<div class="empty-state">No transactions this month yet.</div>';
+    el.innerHTML=html;
 }
 
 // ===== RENDER FORECAST =====
-let forecastWeeks=2, forecastView='summary';
+let forecastWeeks=2,forecastView='summary';
 function setForecastWeeks(w){forecastWeeks=w;document.querySelectorAll('.week-toggle').forEach(b=>b.classList.remove('active'));document.getElementById('week-'+w).classList.add('active');renderForecast();}
 function setForecastView(v){forecastView=v;document.querySelectorAll('.view-toggle').forEach(b=>b.classList.remove('active'));document.getElementById('toggle-'+v).classList.add('active');renderForecast();}
-
-function renderForecast() {
+function renderForecast(){
     const data=getData(),now=new Date(),endDate=new Date(now.getTime()+forecastWeeks*7*86400000);
     const twoWeeksAgo=new Date(now-14*86400000);
-    const recentSpending=data.transactions.filter(t=>t.type==='spend'&&new Date(t.date)>=twoWeeksAgo);
-    const avgDailySpend=recentSpending.length>0?recentSpending.reduce((s,t)=>s+t.amount,0)/14:0;
+    const rs=data.transactions.filter(t=>t.type==='spend'&&new Date(t.date)>=twoWeeksAgo);
+    const avgDaily=rs.length>0?rs.reduce((s,t)=>s+t.amount,0)/14:0;
     const events=[];
     for(let bill of data.bills){if(bill.paid_this_month)continue;for(let m=0;m<2;m++){const bd=new Date(now.getFullYear(),now.getMonth()+m,bill.due_day);if(bd>now&&bd<=endDate)events.push({date:bd,name:bill.name,amount:-bill.amount,type:'bill'});}}
-    const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-    for(let source of data.income_sources){const targetDay=days.indexOf(source.pay_day);for(let i=0;i<forecastWeeks*7;i++){const cd=new Date(now.getTime()+(i+1)*86400000);if(cd>endDate)break;if(cd.getDay()===targetDay){if(source.frequency==='weekly')events.push({date:new Date(cd),name:source.name,amount:source.amount,type:'income'});else if(source.frequency==='biweekly'&&Math.floor(i/7)%2===0)events.push({date:new Date(cd),name:source.name,amount:source.amount,type:'income'});}}}
+    const dayNames=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+    for(let src of data.income_sources){const td=dayNames.indexOf(src.pay_day);for(let i=0;i<forecastWeeks*7;i++){const cd=new Date(now.getTime()+(i+1)*86400000);if(cd>endDate)break;if(cd.getDay()===td){if(src.frequency==='weekly')events.push({date:new Date(cd),name:src.name,amount:src.amount,type:'income'});else if(src.frequency==='biweekly'&&Math.floor(i/7)%2===0)events.push({date:new Date(cd),name:src.name,amount:src.amount,type:'income'});}}}
     events.sort((a,b)=>a.date-b.date);
     const container=document.getElementById('forecast-content');
-    if(forecastView==='summary'){let html='',rb=data.balance;const mx=data.balance+data.income_sources.reduce((s,src)=>s+src.amount,0)*forecastWeeks;for(let w=0;w<forecastWeeks;w++){const ws=new Date(now.getTime()+w*7*86400000),we=new Date(now.getTime()+(w+1)*7*86400000);const we2=events.filter(e=>e.date>=ws&&e.date<we);const wi=we2.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);const wb=we2.filter(e=>e.type==='bill').reduce((s,e)=>s+Math.abs(e.amount),0);const wse=avgDailySpend*7;rb+=wi-wb-wse;const pct=Math.max(0,Math.min(100,(rb/(mx||1))*100));const color=rb>200?'#27ae60':rb>50?'#f39c12':'#e74c3c';const label=w===0?'This Week':w===1?'Next Week':'Week '+(w+1);html+='<div class="forecast-week"><div class="forecast-week-header"><span class="forecast-week-label">'+label+'</span><span class="forecast-week-amount" style="color:'+color+'">$'+Math.max(0,rb).toFixed(0)+'</span></div><div class="forecast-week-detail">+$'+wi.toFixed(0)+' income • -$'+wb.toFixed(0)+' bills • -$'+wse.toFixed(0)+' est. spending</div><div class="forecast-bar"><div class="forecast-bar-fill" style="width:'+pct+'%;background:'+color+';"></div></div></div>';}html+='<div style="font-size:0.75rem;color:#888;text-align:center;margin-top:0.5rem;">'+(avgDailySpend>0?'Based on avg $'+avgDailySpend.toFixed(0)+'/day':'Log spending to improve accuracy')+'</div>';container.innerHTML=html;}
-    else{let html='',rb=data.balance;if(events.length===0){html='<div class="empty-state">No upcoming events.</div>';}else{let all=[...events];for(let w=0;w<forecastWeeks;w++){const sd=new Date(now.getTime()+(w*7+3)*86400000);if(sd<=endDate&&avgDailySpend>0)all.push({date:sd,name:'Est. spending',amount:-(avgDailySpend*7),type:'spending'});}all.sort((a,b)=>a.date-b.date);html='<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:2px solid #eee;margin-bottom:0.3rem;"><span style="font-size:0.8rem;font-weight:600;">Today</span><span style="font-size:0.8rem;font-weight:600;">$'+data.balance.toFixed(0)+'</span></div>';all.forEach(item=>{rb+=item.amount;const ds=item.date.toLocaleDateString('en-US',{month:'short',day:'numeric'});const cls=item.type==='income'?'timeline-income':item.type==='spending'?'timeline-spending':'timeline-bill';html+='<div class="timeline-item"><span class="timeline-date">'+ds+'</span><span class="timeline-name">'+item.name+'</span><span class="timeline-amount '+cls+'">'+(item.amount>0?'+':'')+' $'+Math.abs(item.amount).toFixed(0)+'</span></div>';});const fc=rb>200?'#27ae60':rb>50?'#f39c12':'#e74c3c';html+='<div style="display:flex;justify-content:space-between;padding:0.8rem 0;border-top:2px solid #eee;margin-top:0.3rem;"><span style="font-size:0.85rem;font-weight:600;">End of forecast</span><span style="font-size:0.85rem;font-weight:700;color:'+fc+'">$'+Math.max(0,rb).toFixed(0)+'</span></div>';}container.innerHTML=html;}
+    if(forecastView==='summary'){let html='',rb=data.balance;const mx=data.balance+data.income_sources.reduce((s,x)=>s+x.amount,0)*forecastWeeks||1;for(let w=0;w<forecastWeeks;w++){const ws=new Date(now.getTime()+w*7*86400000),we=new Date(now.getTime()+(w+1)*7*86400000);const wev=events.filter(e=>e.date>=ws&&e.date<we);const wi=wev.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);const wb=wev.filter(e=>e.type==='bill').reduce((s,e)=>s+Math.abs(e.amount),0);const wse=avgDaily*7;rb+=wi-wb-wse;const pct=Math.max(0,Math.min(100,(rb/mx)*100));const color=rb>200?'#27ae60':rb>50?'#f39c12':'#e74c3c';const label=w===0?'This Week':w===1?'Next Week':'Week '+(w+1);html+='<div class="forecast-week"><div class="forecast-week-header"><span class="forecast-week-label">'+label+'</span><span class="forecast-week-amount" style="color:'+color+'">$'+Math.max(0,rb).toFixed(0)+'</span></div><div class="forecast-week-detail">+$'+wi.toFixed(0)+' in • -$'+wb.toFixed(0)+' bills • -$'+wse.toFixed(0)+' spending</div><div class="forecast-bar"><div class="forecast-bar-fill" style="width:'+pct+'%;background:'+color+';"></div></div></div>';}html+='<div style="font-size:0.75rem;color:#888;text-align:center;margin-top:0.5rem;">'+(avgDaily>0?'Based on avg $'+avgDaily.toFixed(0)+'/day':'Log spending for better accuracy')+'</div>';container.innerHTML=html;}
+    else{let html='',rb=data.balance;if(events.length===0&&avgDaily===0){html='<div class="empty-state">Set up income and bills first.</div>';}else{let all=[...events];for(let w=0;w<forecastWeeks;w++){const sd=new Date(now.getTime()+(w*7+3)*86400000);if(sd<=endDate&&avgDaily>0)all.push({date:sd,name:'Est. spending',amount:-(avgDaily*7),type:'spending'});}all.sort((a,b)=>a.date-b.date);html='<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:2px solid #eee;margin-bottom:0.3rem;"><span style="font-size:0.8rem;font-weight:600;">Today</span><span style="font-size:0.8rem;font-weight:600;">$'+data.balance.toFixed(0)+'</span></div>';all.forEach(item=>{rb+=item.amount;const ds=item.date.toLocaleDateString('en-US',{month:'short',day:'numeric'});const cls=item.type==='income'?'timeline-income':item.type==='spending'?'timeline-spending':'timeline-bill';html+='<div class="timeline-item"><span class="timeline-date">'+ds+'</span><span class="timeline-name">'+item.name+'</span><span class="timeline-amount '+cls+'">'+(item.amount>0?'+':'-')+' $'+Math.abs(item.amount).toFixed(0)+'</span></div>';});const fc=rb>200?'#27ae60':rb>50?'#f39c12':'#e74c3c';html+='<div style="display:flex;justify-content:space-between;padding:0.8rem 0;border-top:2px solid #eee;margin-top:0.3rem;"><span style="font-size:0.85rem;font-weight:600;">End of forecast</span><span style="font-size:0.85rem;font-weight:700;color:'+fc+'">$'+Math.max(0,rb).toFixed(0)+'</span></div>';}container.innerHTML=html;}
 }
 
 // ===== RENDER BILLS =====
-function renderBills() {
+function renderBills(){
     const data=getData(),el=document.getElementById('all-bills');
     if(data.bills.length===0){el.innerHTML='<div class="empty-state">No bills yet. Tap + to add one.</div>';return;}
-    el.innerHTML=data.bills.map(b=>{
-        const paid=b.paid_this_month?'<span class="bill-paid">PAID</span>':'';
-        return'<div class="bill-item"><div><div class="bill-name">'+b.name+' '+paid+'</div><div class="bill-due">Due on the '+ordinal(b.due_day)+' • '+b.frequency+'</div></div><div class="action-row"><button style="background:#27ae60;" onclick="toggleBillPaid('+b.id+')">'+(b.paid_this_month?'Unpay':'Paid')+'</button><button style="background:#3498db;" onclick="openBillModal('+b.id+')">Edit</button><button style="background:#e74c3c;" onclick="deleteBill('+b.id+')">✕</button></div></div>';
-    }).join('');
+    el.innerHTML=data.bills.map(b=>{const paid=b.paid_this_month?'<span class="bill-paid">PAID</span>':'';return'<div class="bill-item"><div><div class="bill-name">'+b.name+' '+paid+'</div><div class="bill-due">Due on the '+ordinal(b.due_day)+' • '+b.frequency+'</div></div><div class="action-row"><button style="background:#27ae60;" onclick="toggleBillPaid('+b.id+')">'+(b.paid_this_month?'Unpay':'Paid')+'</button><button style="background:#3498db;" onclick="openBillModal('+b.id+')">Edit</button><button style="background:#e74c3c;" onclick="deleteBill('+b.id+')">✕</button></div></div>';}).join('');
 }
 
 // ===== RENDER SETTINGS =====
-function renderSettings() {
+function renderSettings(){
     const data=getData();
     document.getElementById('people-settings').innerHTML=data.people.map(p=>'<div class="setting-item"><span class="setting-label">'+p+'</span><button class="setting-edit" style="background:#e74c3c;" onclick="deletePerson(\''+p+'\')">✕</button></div>').join('');
     const iEl=document.getElementById('income-settings');
     iEl.innerHTML=data.income_sources.length===0?'<div class="empty-state">No income sources.</div>':data.income_sources.map(s=>'<div class="setting-item"><div><div class="setting-label">'+s.name+'</div><div class="setting-value">$'+s.amount.toFixed(2)+' • '+s.frequency+' • '+s.pay_day+'</div></div><div class="action-row"><button style="background:#3498db;" onclick="openIncomeSetupModal('+s.id+')">Edit</button><button style="background:#e74c3c;" onclick="deleteIncomeSource('+s.id+')">✕</button></div></div>').join('');
     document.getElementById('category-settings').innerHTML=data.categories.map(c=>'<div class="setting-item"><span class="setting-label">'+c+'</span><button class="setting-edit" style="background:#e74c3c;" onclick="deleteCategory(\''+c+'\')">✕</button></div>').join('');
-    const lEl=document.getElementById('limits-settings');
-    const limitEntries=Object.entries(data.limits);
-    lEl.innerHTML=limitEntries.length===0?'<div class="empty-state">No limits set.</div>':limitEntries.map(([cat,amt])=>'<div class="setting-item"><div><div class="setting-label">'+cat+'</div><div class="setting-value">$'+amt.toFixed(2)+'/month</div></div><button class="setting-edit" style="background:#e74c3c;" onclick="deleteLimit(\''+cat+'\')">✕</button></div>').join('');
+    const lEl=document.getElementById('limits-settings');const le=Object.entries(data.limits);
+    lEl.innerHTML=le.length===0?'<div class="empty-state">No limits set.</div>':le.map(([cat,amt])=>'<div class="setting-item"><div><div class="setting-label">'+cat+'</div><div class="setting-value">$'+amt.toFixed(2)+'/month</div></div><button class="setting-edit" style="background:#e74c3c;" onclick="deleteLimit(\''+cat+'\')">✕</button></div>').join('');
 }
 
 // ===== HELPERS =====
-function getNextPayDay(data) {
-    if(data.income_sources.length===0){const n=new Date();return new Date(n.getTime()+((5-n.getDay()+7)%7||7)*86400000);}
-    const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'],now=new Date();let soonest=null;
-    for(let s of data.income_sources){const t=days.indexOf(s.pay_day),d=(t-now.getDay()+7)%7||7;const p=new Date(now.getTime()+d*86400000);if(!soonest||p<soonest)soonest=p;}
-    return soonest;
-}
-function getUpcomingBillsBeforePayday(data,payDay) { if(!payDay)return 0;const now=new Date();let t=0;for(let b of data.bills){if(b.paid_this_month)continue;const d=getNextBillDate(b);if(d>=now&&d<=payDay)t+=b.amount;}return t; }
-function getUpcomingBillsSorted(data) { const now=new Date();return data.bills.map(b=>{const d=getNextBillDate(b);return{...b,daysUntil:Math.ceil((d-now)/86400000),nextDue:d};}).sort((a,b)=>a.daysUntil-b.daysUntil); }
-function getNextBillDate(bill) { const now=new Date(),t=new Date(now.getFullYear(),now.getMonth(),bill.due_day);if(t>now)return t;return new Date(now.getFullYear(),now.getMonth()+1,bill.due_day); }
-function getMonthSpendByCategory(data, cat) { const now=new Date(),start=new Date(now.getFullYear(),now.getMonth(),1);return data.transactions.filter(t=>t.type==='spend'&&t.category===cat&&new Date(t.date)>=start).reduce((s,t)=>s+t.amount,0); }
-function ordinal(n) { const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]); }
+function getNextPayDay(data){if(data.income_sources.length===0){const n=new Date();return new Date(n.getTime()+((5-n.getDay()+7)%7||7)*86400000);}const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'],now=new Date();let soonest=null;for(let s of data.income_sources){const t=days.indexOf(s.pay_day),d=(t-now.getDay()+7)%7||7;const p=new Date(now.getTime()+d*86400000);if(!soonest||p<soonest)soonest=p;}return soonest;}
+function getUpcomingBillsBeforePayday(data,payDay){if(!payDay)return 0;const now=new Date();let t=0;for(let b of data.bills){if(b.paid_this_month)continue;const d=getNextBillDate(b);if(d>=now&&d<=payDay)t+=b.amount;}return t;}
+function getUpcomingBillsSorted(data){const now=new Date();return data.bills.map(b=>{const d=getNextBillDate(b);return{...b,daysUntil:Math.ceil((d-now)/86400000),nextDue:d};}).sort((a,b)=>a.daysUntil-b.daysUntil);}
+function getNextBillDate(bill){const now=new Date(),t=new Date(now.getFullYear(),now.getMonth(),bill.due_day);if(t>now)return t;return new Date(now.getFullYear(),now.getMonth()+1,bill.due_day);}
+function getMonthSpendByCategory(data,cat){const now=new Date(),start=new Date(now.getFullYear(),now.getMonth(),1);return data.transactions.filter(t=>t.type==='spend'&&t.category===cat&&new Date(t.date)>=start).reduce((s,t)=>s+t.amount,0);}
+function ordinal(n){const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
 
 // ===== INIT =====
 checkInit();
-if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
-
-
-// ===== CHECK FOR UPDATES (dev tool - remove later) =====
-function checkForUpdates() {
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(registrations => {
-            registrations.forEach(reg => reg.unregister());
-        });
-        caches.keys().then(keys => {
-            Promise.all(keys.map(k => caches.delete(k))).then(() => {
-                alert('Cache cleared! App will reload with latest code. Your data is safe.');
-                location.reload(true);
-            });
-        });
-    } else {
-        location.reload(true);
-    }
-}
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js');}
