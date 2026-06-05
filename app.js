@@ -337,3 +337,21 @@ function ordinal(n) { const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%1
 // ===== INIT =====
 checkInit();
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
+
+
+// ===== CHECK FOR UPDATES (dev tool - remove later) =====
+function checkForUpdates() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+            registrations.forEach(reg => reg.unregister());
+        });
+        caches.keys().then(keys => {
+            Promise.all(keys.map(k => caches.delete(k))).then(() => {
+                alert('Cache cleared! App will reload with latest code. Your data is safe.');
+                location.reload(true);
+            });
+        });
+    } else {
+        location.reload(true);
+    }
+}
